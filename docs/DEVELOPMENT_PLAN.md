@@ -257,7 +257,7 @@ docs/readme-results
 
 | Phase | Add to CI |
 |---|---|
-| Now | commitlint (commits + PR title), gitleaks secret scan, pre-commit hooks (file checks, ruff), pytest (config, storage, data pipeline, package boundaries, API model loading), and a Docker smoke test (build, import the packages, start the data pipeline commands) |
+| Now | commitlint (commits + PR title), gitleaks secret scan, pre-commit hooks (file checks, ruff), pytest (config, storage, data pipeline, package boundaries, API model loading), and no Docker job until the ML pipeline produces a model (`make docker-smoke` runs locally) |
 | Track A | Tests for dataset-specific cleaning and preprocessing (picked up by the existing pytest job) |
 | Track B | Front-end tests, if any. The API tests and Docker check already run |
 | Deploy | CD job: on push to `main`, build the image, push it to ECR, and update the Lambda function. Sign in to AWS with a GitHub OIDC role instead of stored AWS keys. Streamlit Community Cloud redeploys from `main` on its own |

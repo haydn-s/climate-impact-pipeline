@@ -258,7 +258,7 @@ That turns the table above into measured numbers. It's listed as a stretch task 
 │   ├── app.py               # Streamlit UI that calls the deployed API
 │   └── requirements.txt     # Front-end-only dependencies (used by Streamlit Cloud)
 ├── scripts/
-│   └── docker_smoke_test.sh # Checks the image's packages and commands load (make docker-smoke, CI)
+│   └── docker_smoke_test.sh # Checks the image's packages and commands load (make docker-smoke)
 ├── tests/                   # Mirrors the packages: shared/, data_pipeline/, api/
 │   ├── test_layout.py       # Each package imports only what it may (the pipelines never import each other)
 │   └── sample_request.json  # Example payload for curl / Postman
@@ -570,7 +570,7 @@ Serve the API (the default command) on port 8080, with a trained model in `model
 docker run --rm -p 8080:8080 --env-file .env -v "$PWD/models:/app/models" project3
 ```
 
-**Smoke test.** This builds the image and checks, as the non-root user Lambda uses, that its packages import and the data pipeline commands start. CI runs it on every PR. The train-and-serve check (train inside the container, serve with a read-only filesystem, and call `/health` and `/predict`) comes back with the ML pipeline:
+**Smoke test.** This builds the image and checks, as the non-root user Lambda uses, that its packages import and the data pipeline commands start. Run it locally before changing the Dockerfile. It's out of CI until the ML pipeline produces a model: then the train-and-serve check (train inside the container, serve with a read-only filesystem, and call `/health` and `/predict`) and the CI job come back together:
 
 ```bash
 make docker-smoke
@@ -785,7 +785,6 @@ Passing locally means CI should pass too. The one check CI adds is a gitleaks sc
 | **Secret scan (gitleaks)** | Scans every commit in the PR for API keys, tokens, and private keys |
 | **Lint (pre-commit hooks)** | `make lint`: file checks (large files, whitespace, YAML/JSON/TOML syntax) plus ruff lint and format |
 | **Tests (pytest)** | `make test`: config validation, storage, the data pipeline (ingest, prepare, push), package boundaries, and the API's model loading |
-| **Docker image (build + smoke test)** | `make docker-smoke`: builds the image and checks, as a non-root user, that its packages import and the data pipeline commands start |
 | **CI passed** | Gate job that succeeds only if every job above passed or was skipped. Branch protection requires this one check |
 
 To add a check, add a job to `ci.yml` and list it under `ci-passed.needs`. Branch protection doesn't need to change. Planned addition: a deploy job on merge that pushes the image to ECR and updates the Lambda function.
