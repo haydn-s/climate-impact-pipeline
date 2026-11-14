@@ -15,10 +15,12 @@ PLATFORM ?= linux/amd64
 
 .DEFAULT_GOAL := help
 .PHONY: help venv setup format lint test lint-commits lint-title pr-ready \
-	demo-data train serve docker-build docker-smoke
+	ingest prepare push data serve docker-build docker-smoke
 
 help: ## List available commands
-	@grep -E '^[a-zA-Z_-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  %-14s %s\n", $$1, $$2}'
+	@awk 'BEGIN {FS = ":.*## "} /^##@/ {printf "\n%s\n", substr($$0, 5)} /^[a-zA-Z_-]+:.*## / {printf "  %-14s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+
+##@ Setup and checks
 
 venv: ## Create or update the PyDev virtual environment from requirements-pydev.txt
 	@if [ ! -d $(VENV) ]; then \
@@ -48,11 +50,27 @@ test: ## Run the tests (passes with a notice until tests exist)
 	if [ $$status -eq 5 ]; then echo "No tests collected yet."; exit 0; fi; \
 	exit $$status
 
-demo-data: ## Generate the synthetic demo dataset (data/demo/demo.csv)
-	python -m src.demo_data
+##@ Data pipeline (data_pipeline/): sources -> processed table in Cloud Storage
 
-train: ## Train a model: make train CONFIG=configs/linear.yaml (default: config.yaml)
-	python -m src.train --config $(CONFIG)
+ingest: ## Data 1/3: fetch every source in the config and save raw snapshots
+	python -m data_pipeline.ingest --config $(CONFIG)
+
+prepare: ## Data 2/3: clean, join, and add features, writing data.local_path
+	python -m data_pipeline.prepare --config $(CONFIG)
+
+push: ## Data 3/3: upload the processed data to data.remote_uri
+	python -m data_pipeline.push --config $(CONFIG)
+
+data: ## Run all three data stages in order
+	@# One after another, even under make -j (prerequisites would run in parallel).
+	@$(MAKE) --no-print-directory ingest
+	@$(MAKE) --no-print-directory prepare
+	@$(MAKE) --no-print-directory push
+
+# ML pipeline (ml_pipeline/): its targets, like `make train`, come with the
+# pipeline. See ml_pipeline/README.md.
+
+##@ API and Docker
 
 serve: ## Run the API locally with auto-reload (serves models/latest unless MODEL_URI is set)
 	uvicorn api.main:create_app --factory --reload --port 8080
@@ -60,8 +78,10 @@ serve: ## Run the API locally with auto-reload (serves models/latest unless MODE
 docker-build: ## Build the image for Lambda (linux/amd64, no attestations)
 	docker buildx build --platform $(PLATFORM) --provenance=false --sbom=false -t $(IMAGE) --load .
 
-docker-smoke: docker-build ## Build the image, train on demo data inside it, and test the API
+docker-smoke: docker-build ## Build the image and check its packages and commands load
 	IMAGE=$(IMAGE) sh scripts/docker_smoke_test.sh
+
+##@ Commits and pull requests
 
 lint-commits: ## Lint commit messages in FROM..TO (default: origin/main..HEAD)
 	$(COMMITLINT) --from $(FROM) --to $(TO) --verbose

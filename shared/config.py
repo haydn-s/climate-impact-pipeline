@@ -39,6 +39,59 @@ class DataConfig(_Section):
     target: str
 
 
+class SourceConfig(_Section):
+    """One raw data source. config.yaml documents which fields each type uses."""
+
+    name: str = Field(pattern=r"^[a-z][a-z0-9_]*$")  # file names and cleaner lookup
+    type: str  # file | http, or a custom type registered in data_pipeline/ingest.py
+    uri: str | None = None  # file: local path, http(s) URL, or gs://
+    url: str | None = None  # http: the endpoint
+    params: dict[str, Any] = Field(default_factory=dict)  # http: query parameters
+    headers: dict[str, str] = Field(default_factory=dict)  # http
+    format: Literal["json", "csv"] = "json"  # http: how to parse the response
+    records: str | None = None  # http + json: dotted path to the list of records
+    options: dict[str, Any] = Field(default_factory=dict)  # custom types only
+    join_on: list[str] | None = None  # None keeps the source out of the join
+    how: Literal["left", "inner"] = "left"
+
+    @model_validator(mode="after")
+    def _check_fields(self) -> SourceConfig:
+        if self.type == "file" and not self.uri:
+            raise ValueError(f"source '{self.name}' has type file, so it needs a uri")
+        if self.type == "http" and not self.url:
+            raise ValueError(f"source '{self.name}' has type http, so it needs a url")
+        if self.join_on is not None and not self.join_on:
+            raise ValueError(
+                f"source '{self.name}': join_on needs at least one column. "
+                "Leave it out to keep the source out of the join"
+            )
+        return self
+
+
+class IngestConfig(_Section):
+    raw_dir: Path = Path("data/raw")
+    remote_prefix: str | None = None  # raw snapshots are also uploaded here
+    sources: list[SourceConfig] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _check_sources(self) -> IngestConfig:
+        names = [source.name for source in self.sources]
+        repeated = sorted({name for name in names if names.count(name) > 1})
+        if repeated:
+            raise ValueError(f"source names used more than once: {repeated}")
+        if self.sources and self.sources[0].join_on is not None:
+            raise ValueError(
+                f"the first source ('{self.sources[0].name}') is the table the others join "
+                "onto, so it can't have join_on"
+            )
+        return self
+
+
+class PrepareConfig(_Section):
+    # Names of feature steps in data_pipeline/prepare.py, applied in order after the join.
+    feature_steps: list[str] = Field(default_factory=list)
+
+
 class FeaturesConfig(_Section):
     numeric: list[str] = Field(default_factory=list)
     categorical: list[str] = Field(default_factory=list)
@@ -90,10 +143,15 @@ class OutputConfig(_Section):
 
 
 class PipelineConfig(_Section):
-    seed: int = 42
-    task: Task
+    # Shared: the processed table both pipelines agree on.
     data: DataConfig
     features: FeaturesConfig
+    # Data pipeline.
+    ingest: IngestConfig = Field(default_factory=IngestConfig)
+    prepare: PrepareConfig = Field(default_factory=PrepareConfig)
+    # ML pipeline.
+    seed: int = 42
+    task: Task
     split: SplitConfig = Field(default_factory=SplitConfig)
     model: ModelConfig
     evaluation: EvaluationConfig
@@ -112,10 +170,11 @@ class PipelineConfig(_Section):
             )
         for name, uri in (
             ("data.remote_uri", self.data.remote_uri),
+            ("ingest.remote_prefix", self.ingest.remote_prefix),
             ("output.remote_prefix", self.output.remote_prefix),
         ):
-            if uri is not None and not uri.startswith("s3://"):
-                raise ValueError(f"{name} must be an s3:// URI or null, got '{uri}'")
+            if uri is not None and not uri.startswith("gs://"):
+                raise ValueError(f"{name} must be a gs:// URI or null, got '{uri}'")
         return self
 
 
