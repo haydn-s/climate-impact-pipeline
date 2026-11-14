@@ -17,10 +17,10 @@ joblib==1.6.0               # model files
 pyyaml==6.0.3               # config.yaml
 pydantic==2.14.3            # config validation and API schemas
 python-dotenv==1.2.4        # load .env for local runs
-boto3==1.43.126             # S3
+boto3==1.44.0             # S3
 wandb==0.31.0
 matplotlib==3.11.2          # evaluation plots
 
 # Serving
-fastapi==0.162.0
+fastapi==0.162.4
 uvicorn==0.54.0
