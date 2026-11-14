@@ -5,16 +5,15 @@ from pathlib import Path
 import pytest
 
 from data_pipeline import push
-from ml_pipeline.demo_data import make_demo_frame
 from shared.config import PipelineConfig, load_config
-from tests.conftest import REPO_CONFIG
+from tests.conftest import REPO_CONFIG, sample_table
 
 REMOTE = "gs://bucket/processed/data.parquet"
 
 
 def processed_config(tmp_path: Path, *overrides: str) -> PipelineConfig:
     path = tmp_path / "data.parquet"
-    make_demo_frame(n_rows=20).to_parquet(path, index=False)
+    sample_table(n_rows=20).to_parquet(path, index=False)
     return load_config(
         REPO_CONFIG, [f"data.local_path={path}", f"data.remote_uri={REMOTE}", *overrides]
     )

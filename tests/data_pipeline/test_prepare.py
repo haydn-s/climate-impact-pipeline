@@ -10,9 +10,8 @@ import pytest
 
 from data_pipeline import prepare
 from data_pipeline.ingest import ingest
-from ml_pipeline.demo_data import make_demo_frame
 from shared.config import SourceConfig
-from tests.conftest import pipeline_config
+from tests.conftest import pipeline_config, sample_table
 
 
 @pytest.mark.parametrize(
@@ -109,8 +108,8 @@ def write_csv(path: Path, data: pd.DataFrame) -> str:
 
 @pytest.fixture
 def two_sources(tmp_path: Path) -> list[dict]:
-    """The demo churn data split into customers plus a region lookup table."""
-    customers = make_demo_frame(n_rows=60)
+    """A customers table plus a region lookup table."""
+    customers = sample_table(n_rows=60)
     regions = pd.DataFrame(
         {"Region": ["north", "south", "east", "west"], "Avg Income": [50, 40, 60, 55]}
     )

@@ -113,9 +113,7 @@ class FeaturesConfig(_Section):
 class SplitConfig(_Section):
     test_size: float = Field(0.15, gt=0, lt=1)
     val_size: float = Field(0.15, gt=0, lt=1)
-    stratify: bool = True  # classification only; ignored when time_column is set
-    # Split by time instead of at random: the latest rows become the test set.
-    time_column: str | None = None
+    stratify: bool = True  # classification only
 
     @model_validator(mode="after")
     def _check_sizes(self) -> SplitConfig:
@@ -164,8 +162,6 @@ class PipelineConfig(_Section):
     def _check_consistency(self) -> PipelineConfig:
         if self.data.target in self.features.all:
             raise ValueError(f"the target '{self.data.target}' is also listed as a feature")
-        if self.split.time_column == self.data.target:
-            raise ValueError(f"the target '{self.data.target}' can't be the split's time_column")
         allowed = METRICS[self.task]
         if self.evaluation.primary_metric not in allowed:
             raise ValueError(

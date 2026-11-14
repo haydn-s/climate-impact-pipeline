@@ -1,13 +1,12 @@
 # Pipeline configuration. Every data and training parameter lives here, in
 # three parts: what both pipelines agree on, then each pipeline's own settings.
 #
-# Until we pick a dataset (kickoff decision 1), this trains on a synthetic demo
-# dataset. Create it with `make demo-data`. Swapping in the real dataset means
-# editing the data, features, task, and evaluation sections, not the code.
+# Until we pick a dataset (kickoff decision 1), the data and features below
+# are placeholders. Swapping in the real dataset means editing them, not code.
 #
-# Experiment variants live in configs/ and inherit from this file (`extends:`).
-# Override single values from the command line:
-#   python -m ml_pipeline.train --config config.yaml --set model.params.max_depth=5
+# A file can inherit from this one with `extends:` and list only what changes.
+# Commands override single values with --set, e.g.:
+#   python -m data_pipeline.ingest --set ingest.raw_dir=/tmp/raw
 # Relative paths are relative to the repo root (the container's /app).
 
 # ── Shared: the hand-off between the pipelines ─────────────────────────────
@@ -18,7 +17,7 @@ data:
   # The data pipeline writes local_path and pushes it to remote_uri. Training
   # downloads remote_uri to local_path (when it's set). CSV or Parquet, by extension.
   remote_uri: null                # e.g. gs://climate-impact-pipeline-data/processed/<file>.parquet
-  local_path: data/demo/demo.csv
+  local_path: data/processed/dataset.parquet
   target: churned
 
 features:
@@ -29,7 +28,6 @@ features:
 # ── Data pipeline (data_pipeline/): make ingest → make prepare → make push ──
 
 # Stage 1, ingest: fetch each source and save it unchanged as <raw_dir>/<name>.csv.
-# The demo dataset has no sources: make demo-data writes it directly.
 ingest:
   raw_dir: data/raw
   remote_prefix: gs://climate-impact-pipeline-data/raw  # snapshots are uploaded here too
@@ -57,7 +55,8 @@ ingest:
 prepare:
   feature_steps: []               # names registered with @feature_step in data_pipeline/prepare.py
 
-# ── ML pipeline (ml_pipeline/): make train ──────────────────────────────────
+# ── ML pipeline (ml_pipeline/, not built yet) ───────────────────────────────
+# Left over from an earlier draft. The ML pipeline keeps, changes, or replaces these.
 
 seed: 42
 task: classification              # classification | regression
@@ -66,9 +65,6 @@ split:
   test_size: 0.15
   val_size: 0.15
   stratify: true                  # keep class proportions; classification only
-  # For data that changes over time, name a time column (year, date, ...) to
-  # split by time instead: the latest rows are the test set. Stratify is ignored.
-  time_column: null
 
 model:
   # dummy (baseline) | linear | random_forest | hist_gradient_boosting | xgboost

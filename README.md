@@ -1,6 +1,6 @@
 # &lt;Project Name&gt;
 
-> 🚧 **Status: framework in place, dataset not chosen.** The data pipeline, ML pipeline, API, and Docker image are built, and they run end to end on a synthetic demo dataset ([try it](#0-try-it-on-the-demo-data)). Pointing them at the real dataset is a config change. Sections marked **TODO** get filled in once we pick it at kickoff. The stack is chosen: Google Cloud Storage for the data and models, AWS Lambda for the API, Weights & Biases, FastAPI, and Streamlit. See the [Development Plan](docs/DEVELOPMENT_PLAN.md) for the reasoning and the open decisions.
+> 🚧 **Status: framework in place, dataset not chosen.** The data pipeline, the API, and the Docker image are built. The ML pipeline isn't yet: [`ml_pipeline/README.md`](ml_pipeline/README.md) describes what it reads and what the API needs from it. Pointing them at the real dataset is a config change. Sections marked **TODO** get filled in once we pick it at kickoff. The stack is chosen: Google Cloud Storage for the data and models, AWS Lambda for the API, Weights & Biases, FastAPI, and Streamlit. See the [Development Plan](docs/DEVELOPMENT_PLAN.md) for the reasoning and the open decisions.
 
 **TODO:** One-sentence pitch: what we predict, for whom, and why it's useful.
 
@@ -37,7 +37,6 @@
     - [Set up Cloud Storage (one-time)](#set-up-cloud-storage-one-time)
     - [Set up your .env](#set-up-your-env)
   - [Usage](#usage)
-    - [0. Try it on the demo data](#0-try-it-on-the-demo-data)
     - [1. Build the dataset and upload it to the cloud](#1-build-the-dataset-and-upload-it-to-the-cloud)
     - [2. Train the model](#2-train-the-model)
     - [3. Run the API locally](#3-run-the-api-locally)
@@ -79,7 +78,7 @@
 ```mermaid
 flowchart LR
     SRC[Public data sources<br/>web APIs · files] -->|data_pipeline/<br/>ingest → prepare → push| STORED[(Google Cloud Storage<br/>raw/ · processed/ · public read)]
-    STORED -->|ml_pipeline/data.py<br/>download| TRAIN[ML pipeline<br/>ml_pipeline/train.py + config.yaml]
+    STORED -->|download| TRAIN[ML pipeline<br/>ml_pipeline/ · to be built]
     TRAIN -->|params · metrics · plots| WB[Weights & Biases]
     TRAIN -->|model.joblib| STOREM[(Google Cloud Storage<br/>models/ · public read)]
     STOREM -->|loaded at startup<br/>anonymous read| API[FastAPI /predict<br/>Docker image on AWS Lambda]
@@ -131,7 +130,7 @@ Other sources we looked at, for features or context: GRACE/GRACE-FO ice sheet ma
 
 **Model.** TODO, e.g. a scikit-learn `Pipeline` with a `ColumnTransformer` (imputation + scaling + one-hot encoding) feeding a `RandomForestClassifier`. The full preprocessing + model pipeline is serialized as one artifact, so the API applies exactly the same transforms as training.
 
-**Hyperparameters.** All hyperparameters are set in [`config.yaml`](config.yaml) (or a variant in [`configs/`](configs/)) and logged to W&B on every run. See [Configuration](#configuration).
+**Hyperparameters.** All hyperparameters are set in [`config.yaml`](config.yaml) and logged to W&B on every run. See [Configuration](#configuration).
 
 **Results.**
 
@@ -224,14 +223,13 @@ That turns the table above into measured numbers. It's listed as a stretch task 
 ```
 .
 ├── config.yaml              # All parameters, in three parts: shared, data pipeline, ML pipeline
-├── configs/                 # Experiment variants that extend config.yaml (baseline, linear, ...)
 ├── requirements.txt         # Pipeline + API runtime dependencies (pinned; used by Docker, CI, PyDev)
 ├── requirements-dev.txt     # Dev tooling: pre-commit, pytest, httpx2
 ├── requirements-pydev.txt   # PyDev environment: adds notebooks and deep learning (local only)
 ├── pyproject.toml           # Shared code style (ruff) and pytest settings
 ├── Makefile                 # Dev commands, grouped by pipeline (run `make help`)
-├── Dockerfile               # One image with `train` and `serve` entry points. Also runs on Lambda
-├── entrypoint.sh            # Dispatches `train` | `serve` | any other command
+├── Dockerfile               # One image that serves the API and runs the pipeline commands. Also runs on Lambda
+├── entrypoint.sh            # Dispatches `serve` | any other command
 ├── .dockerignore            # Keeps data, models, secrets, and PyDev out of the image
 ├── .env.example             # Environment variables to copy into .env (no secrets committed)
 ├── .commitlintrc.yaml       # Commit message rules (Conventional Commits)
@@ -251,14 +249,8 @@ That turns the table above into measured numbers. It's listed as a stretch task 
 │   ├── ingest.py            # 1/3: fetch each source (file, http, custom types) → raw snapshots
 │   ├── prepare.py           # 2/3: cleaners, joins, and feature steps → processed table
 │   └── push.py              # 3/3: upload the processed table (the hand-off to the ML pipeline)
-├── ml_pipeline/             # ML pipeline: processed table → trained model
-│   ├── data.py              # Download the processed table, train/validation/test split
-│   ├── features.py          # Preprocessing (sklearn ColumnTransformer)
-│   ├── models.py            # model.type → scikit-learn estimator
-│   ├── evaluate.py          # Metrics + plots
-│   ├── tracking.py          # W&B logging
-│   ├── train.py             # Entry point: load → split → train → evaluate → log → save
-│   └── demo_data.py         # Synthetic dataset for trying the pipeline before we pick one
+├── ml_pipeline/             # ML pipeline: processed table → trained model (to be built)
+│   └── README.md            # What it reads, and the model files the API needs from it
 ├── api/
 │   ├── main.py              # FastAPI app: /health, /metadata, /predict
 │   └── schemas.py           # Response models. The request model is built from the model's metadata
@@ -266,8 +258,8 @@ That turns the table above into measured numbers. It's listed as a stretch task 
 │   ├── app.py               # Streamlit UI that calls the deployed API
 │   └── requirements.txt     # Front-end-only dependencies (used by Streamlit Cloud)
 ├── scripts/
-│   └── docker_smoke_test.sh # Trains and serves inside the image (make docker-smoke, CI)
-├── tests/                   # Mirrors the packages: shared/, data_pipeline/, ml_pipeline/, api/
+│   └── docker_smoke_test.sh # Checks the image's packages and commands load (make docker-smoke, CI)
+├── tests/                   # Mirrors the packages: shared/, data_pipeline/, api/
 │   ├── test_layout.py       # Each package imports only what it may (the pipelines never import each other)
 │   └── sample_request.json  # Example payload for curl / Postman
 ├── notebooks/               # Planned (task A1)
@@ -453,7 +445,7 @@ What you fill in depends on what you run. Nobody needs every value.
 2. Sign in to Google Cloud ([Authenticate](#authenticate)) so `make ingest` and `make push` can upload.
 3. Uncomment and fill in a key for each source in `ingest.sources` that needs one ([below](#data-source-keys)). `make ingest` lists any that are missing, or left blank, before it fetches anything.
 
-**ML pipeline and API** (`make train`, `make serve`):
+**ML pipeline and API** (training, and `make serve`):
 
 1. Get added to our W&B team, `dhs27-duke-university` (`tracking.entity` in `config.yaml`), then run `wandb login` or set `WANDB_API_KEY`. Until you're on the team, or to train without a W&B account, set `WANDB_MODE=disabled`.
 2. Leave `MODEL_URI` as is to serve your latest local model, or set it to `gs://climate-impact-pipeline-data/models/latest/model.joblib` to serve the published one.
@@ -512,28 +504,6 @@ If a key ever lands in a response, ingest replaces it with `***` before saving t
 
 Run these from the repo root, inside PyDev (`source PyDev/bin/activate`).
 
-### 0. Try it on the demo data
-
-Until we pick a dataset, `config.yaml` points at a synthetic customer-churn dataset (made-up rows, no real people). This runs the whole pipeline locally, with no cloud or W&B account:
-
-```bash
-make demo-data
-```
-
-```bash
-WANDB_MODE=disabled make train
-```
-
-```bash
-make serve
-```
-
-Then open <http://localhost:8080/docs>, or send the sample request from another terminal:
-
-```bash
-curl -X POST http://localhost:8080/predict -H "Content-Type: application/json" -d @tests/sample_request.json
-```
-
 ### 1. Build the dataset and upload it to the cloud
 
 The data pipeline has three stages, each its own script. Run them all with `make data`, or one at a time:
@@ -556,43 +526,15 @@ make push
 
 **Why keep raw snapshots.** Public data sources move. In 2026 NOAA's NCEI is retiring some download services, and NSIDC's Sea Ice Index has dropped to basic support. With every source's raw rows saved in the bucket, `make prepare` can rebuild the processed table without calling the APIs again. It downloads any snapshot that's missing locally.
 
-**Which features belong where.** The API gets one row of inputs from the front-end, so a feature computed in `prepare` has to be something the front-end can supply or look up too. Transforms of a row's own inputs (ratios, logs, date parts) belong in [`ml_pipeline/features.py`](ml_pipeline/features.py), where they become part of the saved model and the API applies them for you. And measure anomalies against a fixed baseline period, not the whole table, so the test years don't leak into training.
+**Which features belong where.** The API gets one row of inputs from the front-end, so a feature computed in `prepare` has to be something the front-end can supply or look up too. Transforms of a row's own inputs (ratios, logs, date parts) belong in the ML pipeline's saved model, so the API applies them for you. And measure anomalies against a fixed baseline period, not the whole table, so the test years don't leak into training.
 
 **Leading zeros.** Snapshots are CSV, so codes like state FIPS `01` or ZIP codes come back as numbers. Restore them in the source's cleaner, e.g. `frame["fips"].astype(str).str.zfill(2)`.
 
-The ML pipeline then downloads `data.remote_uri` with [`ml_pipeline/data.py`](ml_pipeline/data.py). Because the bucket is publicly readable, that needs no Google login. The file is also at `https://storage.googleapis.com/climate-impact-pipeline-data/processed/<file>`.
+The ML pipeline then downloads `data.remote_uri`. Because the bucket is publicly readable, that needs no Google login. The file is also at `https://storage.googleapis.com/climate-impact-pipeline-data/processed/<file>`.
 
 ### 2. Train the model
 
-```bash
-make train
-```
-
-That runs `python -m ml_pipeline.train --config config.yaml`. It downloads the processed data from cloud storage (when `data.remote_uri` is set), splits it, trains, evaluates on the validation and test sets, logs everything to W&B, and saves the model pipeline locally and, when `output.remote_prefix` is set, to `gs://climate-impact-pipeline-data/models/`. It's `null` for now on purpose: while `config.yaml` trains the demo data, uploading would put demo models in `models/latest/`, which is what the deployed API serves. Set it once the config trains the real dataset.
-
-Each run writes `models/<run-id>/` and copies it to `models/latest/`:
-
-| File | Contents |
-|---|---|
-| `model.joblib` | The fitted scikit-learn pipeline: preprocessing plus model |
-| `metadata.json` | Run ID, metrics, features (with ranges and categories), class labels, data hash, library versions, and the full config. The API builds its request schema from this file |
-| `plots/` | Confusion matrix (classification) or predicted-vs-actual and residuals (regression), plus feature importance |
-
-**Experiments.** Train a variant from [`configs/`](configs/), or override single values:
-
-```bash
-make train CONFIG=configs/baseline.yaml
-```
-
-```bash
-python -m ml_pipeline.train --config config.yaml --set model.params.max_depth=5 --set split.test_size=0.2
-```
-
-**Without our accounts.** Training still runs without Google Cloud credentials (the processed data is public, and the model is saved locally only) or a W&B account:
-
-```bash
-WANDB_MODE=disabled make train
-```
+Comes with the ML pipeline, which isn't built yet. [`ml_pipeline/README.md`](ml_pipeline/README.md) describes what it reads (the processed table and `config.yaml`), the two files the API needs from it (`model.joblib` and `metadata.json`), and where to publish them (`gs://climate-impact-pipeline-data/models/`). `output.remote_prefix` in `config.yaml` stays `null` until it trains the real dataset, since `models/latest/` is what the deployed API serves.
 
 ### 3. Run the API locally
 
@@ -600,7 +542,7 @@ WANDB_MODE=disabled make train
 make serve
 ```
 
-That runs `uvicorn api.main:create_app --factory --reload --port 8080`, serving `models/latest/model.joblib`. Set `MODEL_URI` to serve another model, including one in Cloud Storage. The app is created by a factory because its request schema comes from the model it loads.
+That runs `uvicorn api.main:create_app --factory --reload --port 8080`, serving `models/latest/model.joblib`, which the ML pipeline produces. Set `MODEL_URI` to serve another model, including one in Cloud Storage. The app is created by a factory because its request schema comes from the model it loads.
 
 ```bash
 curl http://localhost:8080/health
@@ -622,21 +564,13 @@ Build the image. `make docker-build` builds for `linux/amd64` without attestatio
 make docker-build
 ```
 
-Mounting `data/` and `models/` keeps the data and trained models on your machine. Training reads the public bucket with no login. To upload models from the container, also mount your Google credentials with `-v "$HOME/.config/gcloud:/root/.config/gcloud:ro"`.
-
-Train inside the container (arguments after `train` go to `ml_pipeline.train`):
-
-```bash
-docker run --rm --env-file .env -v "$PWD/data:/app/data" -v "$PWD/models:/app/models" project3 train
-```
-
-Serve the API (the default command) on port 8080:
+Serve the API (the default command) on port 8080, with a trained model in `models/`. A `train` command comes with the ML pipeline:
 
 ```bash
 docker run --rm -p 8080:8080 --env-file .env -v "$PWD/models:/app/models" project3
 ```
 
-**Smoke test.** This builds the image, generates the demo data and trains inside it, then serves the model the way Lambda runs it (a non-root user and a read-only filesystem except `/tmp`) and calls `/health` and `/predict`. CI runs it on every PR:
+**Smoke test.** This builds the image and checks, as the non-root user Lambda uses, that its packages import and the data pipeline commands start. CI runs it on every PR. The train-and-serve check (train inside the container, serve with a read-only filesystem, and call `/health` and `/predict`) comes back with the ML pipeline:
 
 ```bash
 make docker-smoke
@@ -710,7 +644,7 @@ API_URL = "https://<url-id>.lambda-url.<region>.on.aws"
 
 ## Configuration
 
-Every pipeline parameter lives in [`config.yaml`](config.yaml), which documents each setting inline. The code holds nothing dataset-specific. Configs are validated when they load, so a typo or an impossible setting (a metric that doesn't fit the task, split sizes that leave no training rows) fails with a clear message before training starts.
+Every pipeline parameter lives in [`config.yaml`](config.yaml), which documents each setting inline. The code holds nothing dataset-specific. Configs are validated when they load, so a typo or an impossible setting (a metric that doesn't fit the task, split sizes that leave no training rows) fails with a clear message before anything runs. The ML sections (`seed`, `task`, `split`, `model`, `evaluation`, `tracking`, `output`) are a template the ML pipeline keeps, changes, or replaces.
 
 | Section | What it controls |
 |---|---|
@@ -720,30 +654,19 @@ Every pipeline parameter lives in [`config.yaml`](config.yaml), which documents 
 | `ingest` | The data `sources` (type, location, parameters, join keys), the raw snapshot folder, and where to upload snapshots |
 | `prepare` | The feature steps to run after cleaning and joining |
 | `features` | The `numeric` and `categorical` columns to use. Other columns are ignored |
-| `split` | Test and validation fractions (of the whole dataset), stratification for classification, and `time_column` to split by time instead (the latest rows become the test set) |
-| `model` | `type` (below) and `params`, passed straight to the scikit-learn estimator |
+| `split` | Test and validation fractions (of the whole dataset), and stratification for classification |
+| `model` | `type` (`dummy`, `linear`, `random_forest`, `hist_gradient_boosting`, or `xgboost`) and `params` |
 | `evaluation` | `primary_metric`: `accuracy`, `f1` (macro), or `roc_auc` for classification; `rmse`, `mae`, or `r2` for regression |
 | `tracking` | W&B `project`, `entity` (team), and `tags` |
 | `output` | Local model folder and the Cloud Storage prefix to upload models to |
 
-**Model types.** Each type works for both tasks, so switching tasks doesn't mean renaming the model. Add more in [`ml_pipeline/models.py`](ml_pipeline/models.py).
-
-| `model.type` | Classification | Regression |
-|---|---|---|
-| `dummy` | `DummyClassifier` (most common class) | `DummyRegressor` (mean) |
-| `linear` | `LogisticRegression` | `Ridge` |
-| `random_forest` | `RandomForestClassifier` | `RandomForestRegressor` |
-| `hist_gradient_boosting` | `HistGradientBoostingClassifier` | `HistGradientBoostingRegressor` |
-| `xgboost` | `XGBClassifier` | `XGBRegressor` (needs xgboost in `requirements.txt` first) |
-
-**Variants.** A file in [`configs/`](configs/) starts with `extends: ../config.yaml` and lists only what changes. Sections merge key by key, except `model.params`, which is replaced as a whole so each variant lists exactly the hyperparameters it uses. `--set key.path=value` overrides a single value from the command line. Values are read as YAML, so `5`, `true`, and `[a, b]` work.
+**Variants.** A config file can start with `extends: config.yaml` (a path relative to it) and list only what changes. Sections merge key by key, except `model.params`, which is replaced as a whole so each variant lists exactly the hyperparameters it uses. `--set key.path=value` overrides a single value from the command line. Values are read as YAML, so `5`, `true`, and `[a, b]` work.
 
 **Switching to the real dataset:**
 
 1. Add the sources to `ingest.sources`, write their cleaners and any feature steps in [`data_pipeline/prepare.py`](data_pipeline/prepare.py), and run `make data` ([Usage 1](#1-build-the-dataset-and-upload-it-to-the-cloud)).
 2. In `config.yaml`, set `task`, the `data` section, `features`, and `evaluation.primary_metric`. Update `tracking.tags`.
-3. Replace [`tests/sample_request.json`](tests/sample_request.json) with a real record. The API tests and the Docker smoke test send it.
-4. Delete `ml_pipeline/demo_data.py` and the `demo-data` make target once nothing uses them.
+3. Replace [`tests/sample_request.json`](tests/sample_request.json) with a real record. The `curl` examples here send it.
 
 ## API Reference
 
@@ -756,7 +679,7 @@ Every pipeline parameter lives in [`config.yaml`](config.yaml), which documents 
 
 The `/predict` request schema is generated from the served model's `metadata.json`, so it always matches the model: one field per feature, categorical fields limited to the categories seen in training, and unknown fields rejected. Invalid requests get a `422` that says which field is wrong.
 
-**Example request** (the demo dataset; TODO: replace with real features):
+**Example request** (placeholder features; TODO: replace with real ones):
 
 ```json
 {
@@ -844,12 +767,10 @@ Passing locally means CI should pass too. The one check CI adds is a gitleaks sc
 | `make format` | Auto-fix formatting and lint issues in all files |
 | `make lint` | Run every pre-commit hook on all files |
 | `make test` | Run the tests |
-| `make demo-data` | Generate the synthetic demo dataset |
 | `make data` | Run the data pipeline: `make ingest`, `make prepare`, `make push` |
-| `make train CONFIG=...` | Train a model (default: `config.yaml`) |
 | `make serve` | Run the API locally with auto-reload |
 | `make docker-build` | Build the image for Lambda (`linux/amd64`) |
-| `make docker-smoke` | Build the image, train and serve inside it, and call the API |
+| `make docker-smoke` | Build the image and check its packages and commands load |
 | `make lint-commits` | Lint the commit messages on your branch |
 | `make lint-title PR_TITLE="..."` | Lint a PR title |
 | `make pr-ready` | Everything above, before you open a PR |
@@ -863,8 +784,8 @@ Passing locally means CI should pass too. The one check CI adds is a gitleaks sc
 | **Commit messages & PR title** | commitlint on each commit in the PR and on the PR title |
 | **Secret scan (gitleaks)** | Scans every commit in the PR for API keys, tokens, and private keys |
 | **Lint (pre-commit hooks)** | `make lint`: file checks (large files, whitespace, YAML/JSON/TOML syntax) plus ruff lint and format |
-| **Tests (pytest)** | `make test`: config validation, preprocessing, models, storage, training end to end, and the API |
-| **Docker image (build + smoke test)** | `make docker-smoke`: builds the image, trains on the demo data inside it, and calls the API under Lambda-like conditions |
+| **Tests (pytest)** | `make test`: config validation, storage, the data pipeline (ingest, prepare, push), package boundaries, and the API's model loading |
+| **Docker image (build + smoke test)** | `make docker-smoke`: builds the image and checks, as a non-root user, that its packages import and the data pipeline commands start |
 | **CI passed** | Gate job that succeeds only if every job above passed or was skipped. Branch protection requires this one check |
 
 To add a check, add a job to `ci.yml` and list it under `ci-passed.needs`. Branch protection doesn't need to change. Planned addition: a deploy job on merge that pushes the image to ECR and updates the Lambda function.

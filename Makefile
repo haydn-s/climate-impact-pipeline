@@ -15,7 +15,7 @@ PLATFORM ?= linux/amd64
 
 .DEFAULT_GOAL := help
 .PHONY: help venv setup format lint test lint-commits lint-title pr-ready \
-	demo-data ingest prepare push data train serve docker-build docker-smoke
+	ingest prepare push data serve docker-build docker-smoke
 
 help: ## List available commands
 	@awk 'BEGIN {FS = ":.*## "} /^##@/ {printf "\n%s\n", substr($$0, 5)} /^[a-zA-Z_-]+:.*## / {printf "  %-14s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -67,13 +67,8 @@ data: ## Run all three data stages in order
 	@$(MAKE) --no-print-directory prepare
 	@$(MAKE) --no-print-directory push
 
-##@ ML pipeline (ml_pipeline/): processed table -> trained model
-
-demo-data: ## Generate the synthetic demo dataset (data/demo/demo.csv)
-	python -m ml_pipeline.demo_data
-
-train: ## Train a model: make train CONFIG=configs/linear.yaml (default: config.yaml)
-	python -m ml_pipeline.train --config $(CONFIG)
+# ML pipeline (ml_pipeline/): its targets, like `make train`, come with the
+# pipeline. See ml_pipeline/README.md.
 
 ##@ API and Docker
 
@@ -83,7 +78,7 @@ serve: ## Run the API locally with auto-reload (serves models/latest unless MODE
 docker-build: ## Build the image for Lambda (linux/amd64, no attestations)
 	docker buildx build --platform $(PLATFORM) --provenance=false --sbom=false -t $(IMAGE) --load .
 
-docker-smoke: docker-build ## Build the image, train on demo data inside it, and test the API
+docker-smoke: docker-build ## Build the image and check its packages and commands load
 	IMAGE=$(IMAGE) sh scripts/docker_smoke_test.sh
 
 ##@ Commits and pull requests

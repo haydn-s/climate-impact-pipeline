@@ -4,11 +4,11 @@
 
 Uploads data.local_path (written by stage 2, data_pipeline/prepare.py) to
 data.remote_uri in Cloud Storage. That's the hand-off: the ML pipeline
-downloads the table from there (ml_pipeline/data.py), and since the bucket is
-public, so can anyone else.
+downloads the table from there, and since the bucket is public, so can
+anyone else.
 
-It refuses to upload a table that's missing columns the config's features,
-target, or split use, since training on it would fail. --force skips that check.
+It refuses to upload a table that's missing the config's feature or target
+columns, since training on it would fail. --force skips that check.
 """
 
 from __future__ import annotations

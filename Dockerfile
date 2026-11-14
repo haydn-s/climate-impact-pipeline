@@ -1,6 +1,7 @@
 # One image for the whole project:
-#   docker run project3 train [--config FILE] [--set KEY=VALUE]   run the training pipeline
-#   docker run -p 8080:8080 project3                               serve the API (the default)
+#   docker run -p 8080:8080 project3                  serve the API (the default; needs a model)
+#   docker run project3 python -m data_pipeline.push  run any other command
+# A `train` command comes with the ML pipeline (ml_pipeline/README.md).
 #
 # The same image runs on AWS Lambda. The Lambda Web Adapter (copied in below)
 # turns Lambda invocations into HTTP requests to uvicorn, and does nothing
@@ -35,7 +36,6 @@ COPY requirements.txt .
 RUN pip install -r requirements.txt
 
 COPY entrypoint.sh config.yaml ./
-COPY configs/ configs/
 COPY shared/ shared/
 COPY data_pipeline/ data_pipeline/
 COPY ml_pipeline/ ml_pipeline/

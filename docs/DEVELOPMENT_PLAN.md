@@ -162,6 +162,8 @@ The `/predict` request schema is generated from the model's `metadata.json`, so 
 > | B4–B6 | All of it (deploy, front-end) |
 >
 > Re-split ownership at kickoff so each of us still has PRs to open.
+>
+> **Update (Nov 14, `data-pipeline` branch).** The ML pipeline draft (preprocessing, the model registry, metrics and plots, W&B logging, the training CLI, and the demo dataset) was removed, so the ML pipeline's owner can build it from [`ml_pipeline/README.md`](../ml_pipeline/README.md). The API tests that need a trained model, and the Docker smoke test's train-and-serve steps, went with it. That makes A3–A7 all of it on the ML side, and B2 and B3 each need their model checks restored.
 
 #### Track A: Data & training pipeline
 
@@ -255,7 +257,7 @@ docs/readme-results
 
 | Phase | Add to CI |
 |---|---|
-| Now | commitlint (commits + PR title), gitleaks secret scan, pre-commit hooks (file checks, ruff), pytest (config, features, models, storage, training, API), and a Docker smoke test (build, train on demo data, serve read-only, call `/health` and `/predict`) |
+| Now | commitlint (commits + PR title), gitleaks secret scan, pre-commit hooks (file checks, ruff), pytest (config, storage, data pipeline, package boundaries, API model loading), and a Docker smoke test (build, import the packages, start the data pipeline commands) |
 | Track A | Tests for dataset-specific cleaning and preprocessing (picked up by the existing pytest job) |
 | Track B | Front-end tests, if any. The API tests and Docker check already run |
 | Deploy | CD job: on push to `main`, build the image, push it to ECR, and update the Lambda function. Sign in to AWS with a GitHub OIDC role instead of stored AWS keys. Streamlit Community Cloud redeploys from `main` on its own |

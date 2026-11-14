@@ -61,7 +61,7 @@ def load_bundle(model_uri: str) -> ModelBundle:
         model_path, metadata_path = Path(model_uri), Path(metadata_uri)
         if not model_path.exists():
             raise FileNotFoundError(
-                f"no model at {model_path}. Train one first (make train) or set MODEL_URI."
+                f"no model at {model_path}. Train one with the ML pipeline, or set MODEL_URI."
             )
 
     metadata = json.loads(metadata_path.read_text())

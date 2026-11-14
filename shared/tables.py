@@ -2,7 +2,7 @@
 
 The data pipeline writes the processed table and the ML pipeline reads it, so
 both use these. `missing_columns` is the contract between them: the columns
-the config's features, target, and split need.
+the config's features and target name.
 """
 
 from __future__ import annotations
@@ -57,10 +57,10 @@ def table_columns(path: Path) -> list[str]:
 
 
 def missing_columns(table: pd.DataFrame | Iterable[str], cfg: PipelineConfig) -> list[str]:
-    """Columns the config names (features, target, time column) that a table doesn't have.
+    """Columns the config names (features and target) that a table doesn't have.
 
     `table` is a DataFrame or its column names.
     """
     present = set(table.columns if isinstance(table, pd.DataFrame) else table)
-    needed = dict.fromkeys([*cfg.features.all, cfg.data.target, cfg.split.time_column])
-    return [c for c in needed if c is not None and c not in present]
+    needed = dict.fromkeys([*cfg.features.all, cfg.data.target])
+    return [c for c in needed if c not in present]

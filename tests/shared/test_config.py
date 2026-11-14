@@ -4,24 +4,24 @@ import pytest
 from pydantic import ValidationError
 
 from shared.config import load_config
-from tests.conftest import REPO, REPO_CONFIG
-
-REPO_CONFIGS = [REPO_CONFIG, *sorted((REPO / "configs").glob("*.yaml"))]
+from tests.conftest import REPO_CONFIG
 
 
-@pytest.mark.parametrize("path", REPO_CONFIGS, ids=lambda p: p.name)
-def test_repo_configs_are_valid(path: Path) -> None:
-    load_config(path)
+def test_repo_config_is_valid() -> None:
+    load_config(REPO_CONFIG)
 
 
-def test_extends_merges_sections_but_replaces_model_params() -> None:
+def test_extends_merges_sections_but_replaces_model_params(tmp_path: Path) -> None:
     base = load_config(REPO_CONFIG)
-    baseline = load_config(REPO / "configs" / "baseline.yaml")
+    variant_path = tmp_path / "variant.yaml"
+    variant_path.write_text(f"extends: {REPO_CONFIG}\nmodel:\n  type: dummy\n  params: {{}}\n")
 
-    assert baseline.model.type == "dummy"
-    assert baseline.model.params == {}  # replaced, not merged with the forest's params
-    assert baseline.data == base.data  # inherited untouched
-    assert baseline.features == base.features
+    variant = load_config(variant_path)
+
+    assert variant.model.type == "dummy"
+    assert variant.model.params == {}  # replaced, not merged with the parent's params
+    assert variant.data == base.data  # inherited untouched
+    assert variant.features == base.features
 
 
 def test_set_overrides_parse_values_as_yaml() -> None:
@@ -50,7 +50,6 @@ def test_set_requires_key_equals_value() -> None:
         ("data.remote_uri=https://example.org/data.csv", "must be a gs:// URI"),
         ("ingest.remote_prefix=bucket/raw", "must be a gs:// URI"),
         ("output.remote_prefix=https://example.org/models", "must be a gs:// URI"),
-        ("split.time_column=churned", "can't be the split's time_column"),
         ("data.typo=1", "Extra inputs are not permitted"),
     ],
 )

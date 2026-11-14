@@ -18,8 +18,8 @@ The result is written to `data.local_path`, ready for stage 3 (data_pipeline/pus
 Where features belong: the API gets one row of inputs from the front-end, so a
 column computed here has to be something the front-end can supply or look up
 too. Transforms of a row's own inputs (ratios, logs, date parts) are better
-added to the model pipeline in ml_pipeline/features.py, which the API applies for you.
-Model-time transforms (imputing, scaling, encoding) live there too.
+left to the ML pipeline's saved model, which the API applies for you, along
+with model-time transforms (imputing, scaling, encoding).
 
 Snapshots are CSV, so codes with leading zeros (state FIPS "01", ZIP codes)
 come back as numbers. Restore them in the source's cleaner, e.g.
