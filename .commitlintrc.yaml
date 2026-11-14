@@ -1,6 +1,7 @@
 # Commit message rules: https://www.conventionalcommits.org
 # Enforced locally by the commit-msg hook (.pre-commit-config.yaml) and in CI
-# on every PR commit and the PR title (.github/workflows/ci.yml).
+# on every PR commit and the PR title (.github/workflows/ci.yml), except on
+# Dependabot's PRs.
 extends:
   - "@commitlint/config-conventional"
 

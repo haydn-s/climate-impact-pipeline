@@ -1,5 +1,7 @@
-# Weekly dependency update PRs. Commit prefixes follow Conventional Commits so
-# Dependabot's PRs pass commitlint. Minor/patch bumps are grouped to cut noise.
+# Weekly dependency update PRs. Minor/patch bumps are grouped to cut noise.
+# Commit prefixes use Conventional Commit types so the history reads cleanly,
+# but Dependabot capitalizes "Bump", which commitlint rejects, so CI skips
+# commitlint on Dependabot's PRs (.github/workflows/ci.yml).
 version: 2
 updates:
   - package-ecosystem: pip
