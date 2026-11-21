@@ -113,7 +113,7 @@ The stations are Raleigh-Durham (RDU), Charlotte (CLT), Greensboro (GSO), Ashevi
 | **Name** | North Carolina daily weather, with tomorrow's high labeled against the 1991–2020 climate |
 | **Source / link** | NOAA [GHCN-Daily](https://www.ncei.noaa.gov/products/land-based-station/global-historical-climatology-network-daily) via the [CDO API](https://www.ncdc.noaa.gov/cdo-web/webservices/v2) (stations `USW00013722`, `USW00013881`, `USW00013723`, `USW00003812`, `USW00013748`) |
 | **License** | U.S. government data in the public domain, free to reuse and redistribute. NOAA asks that it be cited ([Acknowledgments](#license--acknowledgments)) |
-| **Size** | About 65,000 rows (one per station per day) × 13 columns. TODO: exact count from the first published run |
+| **Size** | 65,424 rows (one per station per day, January 2, 1991 to October 30, 2026) × 13 columns, 1.2 MB |
 | **Target variable** | `tomorrow_category`: `expected`, `extreme high`, or `extreme low` |
 | **Cloud location** | `gs://climate-impact-pipeline-data/processed/nc_weather_daily.parquet`, publicly readable (also over [HTTPS](https://storage.googleapis.com/climate-impact-pipeline-data/processed/nc_weather_daily.parquet)) |
 
@@ -129,7 +129,7 @@ The stations are Raleigh-Durham (RDU), Charlotte (CLT), Greensboro (GSO), Ashevi
 
 The table also keeps `date`, `station_id`, `latitude`, `longitude`, and `elevation_m`, which can be used for a time-ordered split or later features. It keeps `tomorrow_high_f`, the temperature the label comes from, for a regression variant. Never use it as a feature for the classifier, since it *is* the answer. It also keeps `today_category`, today's own label, which gives a persistence baseline ("tomorrow will be like today"). The front-end can't supply it, so it isn't a feature.
 
-**The label.** For each station and calendar day, the 10th and 90th percentiles of the daily high over **1991–2020** (NOAA's current climate normals period) set the normal range. Each percentile uses the days within a week either side of that date, about 450 values. Tomorrow's high above the 90th percentile is an `extreme high`, below the 10th is an `extreme low`, and anything else is `expected`. So about 1 day in 10 is extreme in each direction during the baseline years. In later, warmer years, extreme highs come up more often. Because the baseline period is fixed, the most recent years never shape their own labels.
+**The label.** For each station and calendar day, the 10th and 90th percentiles of the daily high over **1991–2020** (NOAA's current climate normals period) set the normal range. Each percentile uses the days within a week either side of that date, about 450 values. Tomorrow's high above the 90th percentile is an `extreme high`, below the 10th is an `extreme low`, and anything else is `expected`. In the baseline years, that makes 8.4% of days extreme highs and 8.8% extreme lows. That's a little under 1 in 10, because a high exactly at the threshold counts as expected. In 2021–2026, extreme highs rose to 12.2% of days and extreme lows fell to 5.5%. Because the baseline period is fixed, the most recent years never shape their own labels.
 
 **Cleaning & preprocessing.** It all happens in [`data_pipeline/prepare.py`](data_pipeline/prepare.py) ([Usage 1](#1-build-the-dataset-and-upload-it-to-the-cloud)). Model-time transforms (imputation, scaling, one-hot encoding) live in the ML pipeline's saved model, so the API applies the same ones.
 
@@ -148,8 +148,8 @@ The table also keeps `date`, `station_id`, `latitude`, `longitude`, and `elevati
 | **Task** | Classification, three classes |
 | **Target** | `tomorrow_category`: `expected`, `extreme high`, or `extreme low` |
 | **Primary metric** | Macro F1 (`evaluation.primary_metric: f1`) |
-| **Why this metric** | The classes are imbalanced, about 80 / 10 / 10 in the baseline years. Accuracy would reward always answering `expected`. Macro F1 weighs the two rare classes as much as the common one, and those are the days worth catching |
-| **Baselines** | Majority class (`model.type: dummy`), and persistence: tomorrow gets today's label (`today_category`) |
+| **Why this metric** | The classes are imbalanced: 82.7% `expected`, 9.1% `extreme high`, and 8.2% `extreme low` overall. Accuracy would reward always answering `expected`. Macro F1 weighs the two rare classes as much as the common one, and those are the days worth catching |
+| **Baselines** | Majority class (`model.type: dummy`), and persistence: tomorrow gets today's label (`today_category`), which is right 79.9% of the time |
 | **Split** | Train / validation / test, with ratios set in `config.yaml` and a fixed random seed. Neighbouring days are correlated, so a split by date (for example, testing on 2023 onward) gives a more honest score. The table keeps `date` for that |
 
 ## Model
@@ -536,7 +536,7 @@ make push
 2. **Prepare** ([`data_pipeline/prepare.py`](data_pipeline/prepare.py)) cleans each snapshot, joins the sources on their `join_on` columns, runs the feature steps in `prepare.feature_steps`, and writes `data.local_path`. Every source gets a standard clean (snake_case columns, trimmed text, no empty or duplicate rows). Its own cleaner, and the feature steps, are functions registered in the same file. The joins check for the usual mistakes: missing keys, mismatched key types, and keys that would duplicate rows.
 3. **Push** ([`data_pipeline/push.py`](data_pipeline/push.py)) uploads the processed table to `data.remote_uri`. It refuses a table that lacks the config's features or target, since training on it would fail.
 
-A full run takes about five minutes, most of it NOAA's daily data, about 150 requests. It needs every key in `ingest.sources` ([Data source keys](#data-source-keys)). To rebuild the processed table from the snapshots already in the bucket, with no keys or API calls, run `make prepare` and then `make push`.
+A full run takes about three minutes, most of it NOAA's daily data (about 150 requests). It needs every key in `ingest.sources` ([Data source keys](#data-source-keys)). To rebuild the processed table from the snapshots already in the bucket, with no keys or API calls, run `make prepare` and then `make push`.
 
 **What it builds.** The rows come from the `weather` source, the first in `ingest.sources`. `stations` is joined on `station_id`, and the feature steps `daily_lags` and `tomorrow_label` add the features and the label. The result is published to [`processed/nc_weather_daily.parquet`](https://storage.googleapis.com/climate-impact-pipeline-data/processed/nc_weather_daily.parquet). [Dataset](#dataset) describes each column.
 
@@ -713,7 +713,7 @@ The `/predict` request schema is generated from the served model's `metadata.jso
 
 - **Provenance.** NOAA collects these readings at airport weather stations to support aviation and to keep the climate record. Using them to describe how unusual a day is fits that purpose. The data is in the public domain.
 - **Representativeness.** Five airports can't stand for all of North Carolina. Airports sit in open, often paved areas that can run warmer than the countryside around them, and the model knows nothing about other places or about the hours between the daily high and low.
-- **A moving baseline.** "Normal" here means 1991–2020. As the climate warms, more recent days land in `extreme high`, and the classes shift in the test years, so recent performance can differ from historical performance. That's a real limitation, and it's also the climate signal the index is meant to show.
+- **A moving baseline.** "Normal" here means 1991–2020. As the climate warms, more recent days land in `extreme high` (12.2% of days in 2021–2026, against 8.4% in 1991–2020), and the classes shift in the test years, so recent performance can differ from historical performance. That's a real limitation, and it's also the climate signal the index is meant to show.
 - **Intended use.** A rough, curiosity-level gauge. It isn't a forecast, and no one should base safety decisions on it. Heat and cold warnings come from the [National Weather Service](https://www.weather.gov), and the app says so.
 - **Privacy.** The inputs are weather readings, not personal data, and the API doesn't store them.
 
