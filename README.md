@@ -113,7 +113,7 @@ The stations are Raleigh-Durham (RDU), Charlotte (CLT), Greensboro (GSO), Ashevi
 | **Name** | North Carolina daily weather, with tomorrow's high labeled against the 1991–2020 climate |
 | **Source / link** | NOAA [GHCN-Daily](https://www.ncei.noaa.gov/products/land-based-station/global-historical-climatology-network-daily) via the [CDO API](https://www.ncdc.noaa.gov/cdo-web/webservices/v2) (stations `USW00013722`, `USW00013881`, `USW00013723`, `USW00003812`, `USW00013748`) |
 | **License** | U.S. government data in the public domain, free to reuse and redistribute. NOAA asks that it be cited ([Acknowledgments](#license--acknowledgments)) |
-| **Size** | 65,424 rows (one per station per day, January 2, 1991 to October 30, 2026) × 13 columns, 1.2 MB |
+| **Size** | 65,424 rows (one per station per day, January 2, 1991 to October 30, 2026) × 13 columns, a 470 KB Parquet file |
 | **Target variable** | `tomorrow_category`: `expected`, `extreme high`, or `extreme low` |
 | **Cloud location** | `gs://climate-impact-pipeline-data/processed/nc_weather_daily.parquet`, publicly readable (also over [HTTPS](https://storage.googleapis.com/climate-impact-pipeline-data/processed/nc_weather_daily.parquet)) |
 
