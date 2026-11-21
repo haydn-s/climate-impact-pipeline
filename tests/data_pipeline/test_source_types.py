@@ -187,3 +187,72 @@ def test_config_sources_use_registered_types_and_documented_keys() -> None:
         assert not undocumented, (
             f"{source.name} uses {undocumented}, which .env.example doesn't list"
         )
+
+
+def test_noaa_cdo_queries_one_window_per_chunk_of_years(
+    tmp_path: Path, http: SimpleNamespace
+) -> None:
+    def respond(url: str, params: dict[str, Any]) -> FakeResponse:
+        row = {"date": params["startdate"], "datatype": "TMAX", "value": 1}
+        return FakeResponse({"metadata": {"resultset": {"count": 1}}, "results": [row]})
+
+    http.respond = respond
+    source = {
+        **cdo_source(startdate="2023-06-01", enddate="2025-02-15"),
+        "options": {"chunk_years": 1},
+    }
+
+    ingest.ingest(pipeline_config(tmp_path, [source]))
+
+    assert [(c["params"]["startdate"], c["params"]["enddate"]) for c in http.calls] == [
+        ("2023-06-01", "2023-12-31"),
+        ("2024-01-01", "2024-12-31"),
+        ("2025-01-01", "2025-02-15"),
+    ]
+    assert len(pd.read_csv(tmp_path / "raw" / "climate.csv")) == 3
+
+
+def test_date_windows_of_several_years() -> None:
+    params = {"startdate": "2001-01-01", "enddate": "2024-12-31"}
+    windows = ingest.date_windows(params, 10, source="climate")
+    assert windows == [
+        ("2001-01-01", "2010-12-31"),
+        ("2011-01-01", "2020-12-31"),
+        ("2021-01-01", "2024-12-31"),
+    ]
+    assert ingest.date_windows(params, None, source="climate") == [(None, None)]
+
+
+def test_chunk_years_needs_both_dates() -> None:
+    with pytest.raises(ValueError, match="startdate and enddate"):
+        ingest.date_windows({"startdate": "2001-01-01"}, 1, source="climate")
+
+
+def stations_source(**options: Any) -> dict[str, Any]:
+    return {
+        "name": "stations",
+        "type": "noaa_cdo_stations",
+        "url": "https://cdo.example.org/api/v2/stations/",
+        "headers": {"token": "${TEST_TOKEN}"},
+        "options": options,
+    }
+
+
+def test_noaa_cdo_stations_asks_for_each_station(tmp_path: Path, http: SimpleNamespace) -> None:
+    http.respond = lambda url, params: FakeResponse(
+        {"id": url.rsplit("/", 1)[1], "name": "SOMEWHERE AIRPORT, NC US", "elevation": 10}
+    )
+
+    ingest.ingest(pipeline_config(tmp_path, [stations_source(station_ids=["GHCND:A", "GHCND:B"])]))
+
+    assert [c["url"] for c in http.calls] == [
+        "https://cdo.example.org/api/v2/stations/GHCND:A",
+        "https://cdo.example.org/api/v2/stations/GHCND:B",
+    ]
+    assert all(c["headers"] == {"token": TOKEN} for c in http.calls)
+    assert pd.read_csv(tmp_path / "raw" / "stations.csv")["id"].tolist() == ["GHCND:A", "GHCND:B"]
+
+
+def test_noaa_cdo_stations_needs_station_ids(tmp_path: Path, http: SimpleNamespace) -> None:
+    with pytest.raises(ValueError, match="station_ids"):
+        ingest.ingest(pipeline_config(tmp_path, [stations_source()]))

@@ -29,7 +29,7 @@ import re
 import tempfile
 import time
 from collections.abc import Callable, Iterable
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
 
@@ -346,28 +346,94 @@ def fetch_noaa_cdo(source: SourceConfig) -> pd.DataFrame:
     """NOAA Climate Data Online (API v2), paging through every result.
 
     `url` is the endpoint (e.g. .../cdo-web/api/v2/data) and `params` its query
-    (datasetid, locationid, startdate, enddate, ...). The token goes in
-    `headers: {token: "${NOAA_CDO_TOKEN}"}`. A list value, like several
-    datatypeid, is sent as repeated parameters, which is how CDO takes them.
+    (datasetid, stationid or locationid, startdate, enddate, ...). The token
+    goes in `headers: {token: "${NOAA_CDO_TOKEN}"}`. A list value, like several
+    stationid or datatypeid, is sent as repeated parameters, which is how CDO
+    takes them.
+
+    CDO also caps a query's date range (a year for daily data, ten years for
+    yearly), so `options.chunk_years: N` splits startdate..enddate into
+    windows of N calendar years and queries each one.
     """
     url = _required_url(source)
     params = expand_env(source.params, source=source.name)
     headers = expand_env(source.headers, source=source.name)
     secrets = secrets_in(source)
+    windows = date_windows(params, source.options.get("chunk_years"), source=source.name)
+    frames = []
+    for start, end in windows:
+        query = params if start is None else {**params, "startdate": start, "enddate": end}
+        if start is not None:
+            log.info("%s: %s to %s", source.name, start, end)
+        frames.append(_noaa_cdo_pages(url, query, headers, secrets, source.name))
+    return pd.concat(frames, ignore_index=True)
+
+
+def _noaa_cdo_pages(
+    url: str, params: dict[str, Any], headers: dict[str, str], secrets: list[str], name: str
+) -> pd.DataFrame:
     pages, offset = [], 1
     while True:
         page = {**params, "limit": NOAA_CDO_PAGE_SIZE, "offset": offset}
         payload = http_get(url, params=page, headers=headers, secrets=secrets).json()
+        time.sleep(NOAA_CDO_PAUSE_SECONDS)
         # CDO answers a query that matches nothing with an empty object.
         results = payload.get("results", [])
         pages.append(pd.json_normalize(results))
         total = payload.get("metadata", {}).get("resultset", {}).get("count", 0)
         offset += NOAA_CDO_PAGE_SIZE
         if not results or offset > total:
-            break
-        log.info("%s: fetched %d of %d results", source.name, offset - 1, total)
+            return pd.concat(pages, ignore_index=True)
+        log.info("%s: fetched %d of %d results", name, offset - 1, total)
+
+
+def date_windows(
+    params: dict[str, Any], chunk_years: int | None, *, source: str
+) -> list[tuple[str | None, str | None]]:
+    """Split params' startdate..enddate into windows of `chunk_years` calendar years.
+
+    Returns [(None, None)], meaning one query as configured, when chunk_years isn't set.
+    """
+    if not chunk_years:
+        return [(None, None)]
+    try:
+        first = date.fromisoformat(str(params["startdate"])[:10])
+        last = date.fromisoformat(str(params["enddate"])[:10])
+    except (KeyError, ValueError) as err:
+        raise ValueError(
+            f"source '{source}': options.chunk_years needs params startdate and enddate "
+            "as YYYY-MM-DD"
+        ) from err
+    windows, year = [], first.year
+    while year <= last.year:
+        start = max(first, date(year, 1, 1))
+        end = min(last, date(year + int(chunk_years) - 1, 12, 31))
+        windows.append((start.isoformat(), end.isoformat()))
+        year += int(chunk_years)
+    return windows
+
+
+@source_type("noaa_cdo_stations")
+def fetch_noaa_cdo_stations(source: SourceConfig) -> pd.DataFrame:
+    """Metadata for the NOAA CDO stations in `options.station_ids`: name, location, elevation.
+
+    `url` is .../cdo-web/api/v2/stations, and the token goes in the headers as
+    for noaa_cdo. It asks for each station by id (`<url>/<id>`), since CDO's
+    station list ignores a stationid filter.
+    """
+    station_ids = source.options.get("station_ids")
+    if not station_ids:
+        raise ValueError(
+            f"source '{source.name}' needs options.station_ids, the stations to look up"
+        )
+    url = _required_url(source).rstrip("/")
+    headers = expand_env(source.headers, source=source.name)
+    secrets = secrets_in(source)
+    records = []
+    for station_id in station_ids:
+        records.append(http_get(f"{url}/{station_id}", headers=headers, secrets=secrets).json())
         time.sleep(NOAA_CDO_PAUSE_SECONDS)
-    return pd.concat(pages, ignore_index=True)
+    return pd.json_normalize(records)
 
 
 @source_type("earthdata_timeseries")
