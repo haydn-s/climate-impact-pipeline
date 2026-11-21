@@ -1,18 +1,22 @@
-# Demo variant: runs the data pipeline end to end on synthetic customer data
-# that matches the placeholder target and features in config.yaml, so both
-# pipelines can be tested before we pick the real dataset.
+# Demo variant: runs the data pipeline end to end on synthetic customer data,
+# with its own target and features, so both pipelines can be tested apart from
+# the real weather dataset in config.yaml.
 #
 #   make data CONFIG=configs/demo.yaml     # ingest -> prepare -> push
 #
 # Training can then read data.remote_uri below with --config configs/demo.yaml.
 # Everything this writes stays under demo/ in the bucket, apart from the real
-# dataset's raw/ and processed/. Delete this file and gs://climate-impact-pipeline-data/demo/
-# once config.yaml has the real dataset.
+# dataset's raw/ and processed/.
 extends: ../config.yaml
 
 data:
   remote_uri: gs://climate-impact-pipeline-data/demo/processed/customers.parquet
   local_path: data/demo/processed/customers.parquet
+  target: churned
+
+features:
+  numeric: [age, monthly_spend, support_calls]
+  categorical: [region, plan]
 
 ingest:
   raw_dir: data/demo/raw
@@ -24,3 +28,7 @@ ingest:
     - name: customers
       type: file
       uri: gs://climate-impact-pipeline-data/demo/source/customers.csv
+
+prepare:
+  feature_steps: []               # the weather steps don't apply here
+  step_options: {}

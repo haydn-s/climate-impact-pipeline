@@ -1,8 +1,10 @@
 # Pipeline configuration. Every data and training parameter lives here, in
 # three parts: what both pipelines agree on, then each pipeline's own settings.
 #
-# Until we pick a dataset (kickoff decision 1), the data and features below
-# are placeholders. Swapping in the real dataset means editing them, not code.
+# The dataset: daily weather at five North Carolina airports, labeled by
+# whether tomorrow's high is expected, an extreme high, or an extreme low for
+# that station and time of year (README > Dataset). configs/demo.yaml swaps in
+# a synthetic table instead.
 #
 # A file can inherit from this one with `extends:` and list only what changes.
 # Commands override single values with --set, e.g.:
@@ -16,14 +18,15 @@
 data:
   # The data pipeline writes local_path and pushes it to remote_uri. Training
   # downloads remote_uri to local_path (when it's set). CSV or Parquet, by extension.
-  remote_uri: null                # e.g. gs://climate-impact-pipeline-data/processed/<file>.parquet
-  local_path: data/processed/dataset.parquet
-  target: churned
+  remote_uri: gs://climate-impact-pipeline-data/processed/nc_weather_daily.parquet
+  local_path: data/processed/nc_weather_daily.parquet
+  target: tomorrow_category       # expected | extreme high | extreme low
 
 features:
-  # Columns not listed here (other than the target) are ignored.
-  numeric: [age, monthly_spend, support_calls]
-  categorical: [region, plan]
+  # What the front-end's form asks for. Columns not listed here (other than the
+  # target) are ignored, including tomorrow_high_f, which the label comes from.
+  numeric: [today_high_f, today_low_f, yesterday_high_f]   # °F
+  categorical: [station, month]
 
 # ── Data pipeline (data_pipeline/): make ingest → make prepare → make push ──
 
@@ -36,12 +39,41 @@ ingest:
   # without join_on stays out of the join but feature steps can use it.
   # ${NAME} values come from environment variables (.env), so keys stay out of git.
   #
-  # A first pass: each source is fetched and snapshotted, and none sets join_on
-  # yet, since we haven't picked the question (and target) they'll answer.
   # Other types: `file` reads CSV/Parquet from a local path, an http(s) URL, or
   # gs://. Custom types (paging, several requests) live in data_pipeline/ingest.py.
   sources:
-    - name: colonies              # lowercase, used for file and cleaner names
+    - name: weather               # lowercase, used for file and cleaner names
+      # NOAA GHCN-Daily through Climate Data Online: each day's high and low
+      # at five North Carolina airports. The base table: one row per station-day.
+      type: noaa_cdo
+      url: https://www.ncei.noaa.gov/cdo-web/api/v2/data
+      headers: {token: "${NOAA_CDO_TOKEN}"}
+      params:
+        datasetid: GHCND
+        stationid: &nc_airports
+          - GHCND:USW00013722     # Raleigh-Durham (RDU)
+          - GHCND:USW00013881     # Charlotte (CLT)
+          - GHCND:USW00013723     # Greensboro (GSO)
+          - GHCND:USW00003812     # Asheville (AVL)
+          - GHCND:USW00013748     # Wilmington (ILM)
+        datatypeid: [TMAX, TMIN]
+        startdate: "1991-01-01"   # the start of the 1991-2020 baseline
+        enddate: "2026-10-31"     # fixed, so reruns rebuild the same table
+        units: standard           # °F
+      options:
+        chunk_years: 1            # CDO serves at most a year of daily data per query
+
+    - name: stations
+      # Each airport's name, latitude, longitude, and elevation, from CDO
+      type: noaa_cdo_stations
+      url: https://www.ncei.noaa.gov/cdo-web/api/v2/stations
+      headers: {token: "${NOAA_CDO_TOKEN}"}
+      options:
+        station_ids: *nc_airports
+      join_on: [station_id]       # onto the weather rows
+
+    # Kept for later projects: fetched and snapshotted, but not joined.
+    - name: colonies
       # USDA NASS Quick Stats: honey bee colonies and honey, by state and year
       type: http                  # a GET request to a web API
       url: https://quickstats.nass.usda.gov/api/api_GET/
@@ -102,7 +134,13 @@ ingest:
 # then run these feature steps in order. Stage 3, push, uploads the result
 # to data.remote_uri.
 prepare:
-  feature_steps: []               # names registered with @feature_step in data_pipeline/prepare.py
+  # Names registered with @feature_step in data_pipeline/prepare.py, run in order.
+  feature_steps: [daily_lags, tomorrow_label]
+  step_options:                   # keyword arguments for each step
+    tomorrow_label:
+      baseline_years: [1991, 2020]  # NOAA's current climate normals period
+      window_days: 7              # each calendar day's range uses the days within a week of it
+      percentiles: [10, 90]       # below the first: extreme low; above the second: extreme high
 
 # ── ML pipeline (ml_pipeline/, not built yet) ───────────────────────────────
 # Left over from an earlier draft. The ML pipeline keeps, changes, or replaces these.
