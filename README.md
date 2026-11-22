@@ -132,7 +132,7 @@ The table also keeps `date`, `station_id`, `latitude`, `longitude`, and `elevati
 
 **The label.** For each station and calendar day, the 10th and 90th percentiles of the daily high over **1991–2020** (NOAA's current climate normals period) set the normal range. Each percentile uses the days within a week either side of that date, about 450 values. Tomorrow's high above the 90th percentile is an `extreme high`, below the 10th is an `extreme low`, and anything else is `expected`. In the baseline years, that makes 8.4% of days extreme highs and 8.8% extreme lows. That's a little under 1 in 10, because a high exactly at the threshold counts as expected. In 2021–2026, extreme highs rose to 12.2% of days and extreme lows fell to 5.5%. Because the baseline period is fixed, the most recent years never shape their own labels.
 
-**Cleaning & preprocessing.** It all happens in [`data_pipeline/prepare.py`](data_pipeline/prepare.py) ([Usage 1](#1-build-the-dataset-and-upload-it-to-the-cloud)). Model-time transforms (imputation, scaling, one-hot encoding) live in the ML pipeline's saved model, so the API applies the same ones.
+**Cleaning & preprocessing.** Cleaning and joining happen in [`data_pipeline/clean.py`](data_pipeline/clean.py), and feature engineering, including the label, in [`data_pipeline/features.py`](data_pipeline/features.py). [`data_pipeline/prepare.py`](data_pipeline/prepare.py) runs the two in order ([Usage 1](#1-build-the-dataset-and-upload-it-to-the-cloud)). Model-time transforms (imputation, scaling, one-hot encoding) live in the ML pipeline's saved model, so the API applies the same ones.
 
 1. **Quality flags.** NOAA marks readings that failed its quality checks. Those are dropped.
 2. **Reshape.** NOAA sends one row per reading (station, date, `TMAX` or `TMIN`). They become one row per station per day, with `today_high_f` and `today_low_f`.
@@ -275,7 +275,9 @@ That turns the table above into measured numbers. It's listed as a stretch task 
 │   └── cli.py               # --config/--set options, .env loading, and logging for every command
 ├── data_pipeline/           # Data pipeline: sources → processed table in Cloud Storage
 │   ├── ingest.py            # 1/3: fetch each source (file, http, custom types) → raw snapshots
-│   ├── prepare.py           # 2/3: cleaners, joins, and feature steps → processed table
+│   ├── prepare.py           # 2/3: runs clean.py, then features.py → processed table
+│   ├── clean.py             #   2a: standard clean, each source's cleaner, and checked joins
+│   ├── features.py          #   2b: feature steps, including the label
 │   └── push.py              # 3/3: upload the processed table (the hand-off to the ML pipeline)
 ├── ml_pipeline/             # ML pipeline: processed table → trained model in Cloud Storage
 │   ├── pull.py              # 1/4: download the processed table, keep the features and target
@@ -536,7 +538,7 @@ make push
 ```
 
 1. **Ingest** ([`data_pipeline/ingest.py`](data_pipeline/ingest.py)) fetches every source in `ingest.sources` and saves its rows unchanged to `data/raw/<name>.csv`, with a `manifest.json` recording when and where each came from. Sources are files (local, URL, or `gs://`) or web APIs (`type: http`, JSON or CSV). APIs that need paging get a custom type registered in the same file. With `ingest.remote_prefix` set, the snapshots are uploaded too. Add `--source NAME` to refetch just one.
-2. **Prepare** ([`data_pipeline/prepare.py`](data_pipeline/prepare.py)) cleans each snapshot, joins the sources on their `join_on` columns, runs the feature steps in `prepare.feature_steps`, and writes `data.local_path`. Every source gets a standard clean (snake_case columns, trimmed text, no empty or duplicate rows). Its own cleaner, and the feature steps, are functions registered in the same file. The joins check for the usual mistakes: missing keys, mismatched key types, and keys that would duplicate rows.
+2. **Prepare** ([`data_pipeline/prepare.py`](data_pipeline/prepare.py)) runs two steps and writes `data.local_path`. First, [`clean.py`](data_pipeline/clean.py) cleans each snapshot and joins the sources on their `join_on` columns. Every source gets a standard clean (snake_case columns, trimmed text, no empty or duplicate rows), then its own cleaner, a function registered in `clean.py`. The joins check for the usual mistakes: missing keys, mismatched key types, and keys that would duplicate rows. Then [`features.py`](data_pipeline/features.py) runs the feature steps named in `prepare.feature_steps`, functions registered in that file.
 3. **Push** ([`data_pipeline/push.py`](data_pipeline/push.py)) uploads the processed table to `data.remote_uri`. It refuses a table that lacks the config's features or target, since training on it would fail.
 
 A full run takes about three minutes, most of it NOAA's daily data (about 150 requests). It needs every key in `ingest.sources` ([Data source keys](#data-source-keys)). To rebuild the processed table from the snapshots already in the bucket, with no keys or API calls, run `make prepare` and then `make push`.
@@ -697,7 +699,7 @@ Every pipeline parameter lives in [`config.yaml`](config.yaml), which documents 
 
 **Changing the dataset.** `config.yaml` describes the weather dataset ([Dataset](#dataset)). To change it:
 
-1. Edit `ingest.sources`, write any cleaners and feature steps in [`data_pipeline/prepare.py`](data_pipeline/prepare.py), and run `make data` ([Usage 1](#1-build-the-dataset-and-upload-it-to-the-cloud)).
+1. Edit `ingest.sources`, write any cleaners in [`data_pipeline/clean.py`](data_pipeline/clean.py) and feature steps in [`data_pipeline/features.py`](data_pipeline/features.py), and run `make data` ([Usage 1](#1-build-the-dataset-and-upload-it-to-the-cloud)).
 2. In `config.yaml`, set `task`, the `data` section, `features`, and `evaluation.primary_metric`. Update `tracking.tags`.
 3. Update [`tests/sample_request.json`](tests/sample_request.json) to one record with the new features. The `curl` examples here send it.
 

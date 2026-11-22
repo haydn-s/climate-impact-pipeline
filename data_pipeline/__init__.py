@@ -3,7 +3,7 @@
 Three stages, each a command (`make data` runs them in order):
 
 1. ingest:  python -m data_pipeline.ingest   fetch each source and save raw snapshots
-2. prepare: python -m data_pipeline.prepare  clean, join, and add engineered features
+2. prepare: python -m data_pipeline.prepare  clean and join (clean.py), then add features (features.py)
 3. push:    python -m data_pipeline.push     upload the processed table to Cloud Storage
 
 The hand-off to the ML pipeline is that table at `data.remote_uri`. This

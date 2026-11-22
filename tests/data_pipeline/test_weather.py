@@ -1,4 +1,5 @@
-"""The weather dataset's cleaners and feature steps (data_pipeline/prepare.py), on made-up data."""
+"""The weather dataset's cleaners (data_pipeline/clean.py) and feature steps
+(data_pipeline/features.py), on made-up data."""
 
 from __future__ import annotations
 
@@ -8,9 +9,10 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from data_pipeline import prepare
+from data_pipeline import clean, features, prepare
+from data_pipeline.clean import clean_stations, clean_weather
+from data_pipeline.features import WEATHER_COLUMNS, daily_lags
 from data_pipeline.ingest import ingest
-from data_pipeline.prepare import WEATHER_COLUMNS, clean_stations, clean_weather, daily_lags
 from shared.config import load_config
 from shared.tables import missing_columns
 from tests.conftest import REPO_CONFIG, pipeline_config
@@ -55,7 +57,7 @@ def test_clean_weather_makes_one_row_per_station_day_and_drops_failed_readings()
     )
     raw.loc[(raw["station"] == "GHCND:A") & (raw["value"] == 52), "attributes"] = ",I,W,2400"
 
-    daily = clean_weather(prepare.standard_clean(raw.reset_index(drop=True)))
+    daily = clean_weather(clean.standard_clean(raw.reset_index(drop=True)))
 
     assert daily.columns.tolist() == ["station_id", "date", "high_f", "low_f"]
     assert pd.api.types.is_datetime64_any_dtype(daily["date"])
@@ -82,7 +84,7 @@ def test_clean_stations_shortens_names() -> None:
         }
     )
 
-    stations = clean_stations(prepare.standard_clean(raw))
+    stations = clean_stations(clean.standard_clean(raw))
 
     assert stations["station"].tolist() == [
         "Raleigh Durham",
@@ -123,7 +125,7 @@ def thirty_one_years() -> pd.DataFrame:
 
 
 def test_tomorrow_label_against_the_baseline_range() -> None:
-    labeled = prepare.tomorrow_label(thirty_one_years(), {}).set_index("date")
+    labeled = features.tomorrow_label(thirty_one_years(), {}).set_index("date")
 
     # Each baseline day's range is the 10th to 90th percentile of 50..79: three
     # values (77, 78, 79) sit above it, and three (50, 51, 52) below.
@@ -139,7 +141,7 @@ def test_tomorrow_label_against_the_baseline_range() -> None:
 
 
 def test_tomorrow_label_handles_leap_days_and_drops_incomplete_rows() -> None:
-    labeled = prepare.tomorrow_label(thirty_one_years(), {})
+    labeled = features.tomorrow_label(thirty_one_years(), {})
 
     assert labeled["tomorrow_category"].notna().all()
     assert pd.Timestamp("1992-02-29") in set(labeled["date"])  # labeled with Feb 28's range
@@ -163,7 +165,7 @@ def test_step_options_come_from_the_config(tmp_path: Path) -> None:
         )
     )
 
-    labeled = prepare.add_features(cfg, table, {})
+    labeled = features.add_features(cfg, table, {})
 
     shares = labeled["today_category"].value_counts(normalize=True)
     assert shares["extreme high"] > 0.2  # wider than the default 10th/90th percentiles

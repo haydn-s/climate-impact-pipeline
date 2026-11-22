@@ -16,7 +16,7 @@ come from environment variables (.env locally), so API keys stay out of config.y
 Snapshots are saved unchanged, as CSV, in `ingest.raw_dir`, and uploaded to
 `ingest.remote_prefix` when it's set. A manifest.json next to them records where
 each source came from, when it was fetched, its size, and a checksum. Cleaning
-happens in the next stage (data_pipeline/prepare.py), so changing it never needs the APIs again.
+happens in the next stage (data_pipeline/clean.py), so changing it never needs the APIs again.
 """
 
 from __future__ import annotations
