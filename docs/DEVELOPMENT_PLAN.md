@@ -14,7 +14,7 @@
 2. **Config over code.** Paths, features, split ratios, and hyperparameters live in `config.yaml`. No magic numbers in scripts.
 3. **One artifact for preprocessing + model.** Serialize a single sklearn `Pipeline` so the API applies exactly the transforms used in training.
 4. **Agree on interfaces early so we can work in parallel.** Lock the feature list, config shape, and API request/response schema at kickoff (see [§5](#5-interface-contracts)).
-5. **Everything through PRs.** Nobody pushes directly to `main`, and branch protection enforces it. The other partner reviews each PR. Commit messages follow Conventional Commits, enforced by commitlint.
+5. **Everything through PRs.** Nobody pushes directly to `main`, and branch protection enforces it. The other partner reviews each PR. Conventional Commit messages are suggested but not enforced.
 6. **Never commit secrets.** Keys go in `.env` (gitignored), Streamlit Secrets, or the cloud platform's secret settings.
 
 ## 2. Kickoff Meeting Agenda
@@ -85,7 +85,7 @@ flowchart LR
 | Tests | pytest, FastAPI `TestClient` |
 | Local environment | PyDev: a Python 3.12 venv built from `requirements-pydev.txt` with `make venv` |
 | Code style | ruff, configured in `pyproject.toml`. `make pr-ready` before every PR |
-| CI & conventions | GitHub Actions, commitlint, pre-commit (ruff) |
+| CI & conventions | GitHub Actions, pre-commit (ruff) |
 
 The proposed repo layout is in the [README](../README.md#project-structure).
 
@@ -137,7 +137,7 @@ The `/predict` request schema is generated from the model's `metadata.json`, so 
 - [ ] Make every decision in [§2](#2-kickoff-meeting-agenda)
 - [x] Invite Jothi as a repo collaborator with write access. **Jothi: accept the invite** so your reviews count toward branch protection
 - [x] Protect `main` with a ruleset: PR required, 1 approval, **CI passed** check, no bypass
-- [x] Add commitlint (local hook + CI), pre-commit (gitleaks, ruff, file checks), the CI workflow, a PR template, and `.gitignore`
+- [x] Add pre-commit (gitleaks, ruff, file checks), the CI workflow, a PR template, and `.gitignore`
 - [x] Squash-merge only, auto-delete merged branches, CODEOWNERS, Dependabot, and secret scanning with push protection
 - [x] PyDev environment (`make venv`), shared ruff style (`pyproject.toml`), and `make pr-ready`
 - [ ] Jothi: run `make venv`, `source PyDev/bin/activate`, and `make setup`
@@ -241,12 +241,12 @@ fix/api-missing-field-422
 docs/readme-results
 ```
 
-**Commits.** [Conventional Commits](https://www.conventionalcommits.org/), enforced by commitlint through a local `commit-msg` hook and again in CI. Examples: `feat(data): add download helper`, `fix(pipeline): stratify split for small classes`. Run `pre-commit install` once after cloning.
+**Commits.** [Conventional Commits](https://www.conventionalcommits.org/) are suggested, not enforced. Examples: `feat(data): add download helper`, `fix(pipeline): stratify split for small classes`. Run `pre-commit install` once after cloning.
 
 **Pull requests.**
 
-- Run `make pr-ready PR_TITLE="..."` before opening the PR. It runs the same checks as CI
-- Give the PR a Conventional Commit title. CI lints it
+- Run `make pr-ready` before opening the PR. It runs the same checks as CI
+- Give the PR a clear title, since it becomes the commit on `main`. A Conventional Commit title is suggested
 - Link the task ID (e.g., "Implements A5") and describe how you tested it. The [PR template](../.github/pull_request_template.md) prompts for both
 - Keep PRs small, ideally reviewable in under 15 minutes
 - CODEOWNERS automatically requests your partner's review. Branch protection on `main` requires **1 approval** and a green **CI passed** check before merging. New pushes dismiss earlier approvals
@@ -257,7 +257,7 @@ docs/readme-results
 
 | Phase | Add to CI |
 |---|---|
-| Now | commitlint (commits + PR title), gitleaks secret scan, pre-commit hooks (file checks, ruff), pytest (config, storage, data pipeline, package boundaries, API model loading), and no Docker job until the ML pipeline produces a model (`make docker-smoke` runs locally) |
+| Now | gitleaks secret scan, pre-commit hooks (file checks, ruff), pytest (config, storage, data pipeline, package boundaries, API model loading), and no Docker job until the ML pipeline produces a model (`make docker-smoke` runs locally) |
 | Track A | Tests for dataset-specific cleaning and preprocessing (picked up by the existing pytest job) |
 | Track B | Front-end tests, if any. The API tests and Docker check already run |
 | Deploy | CD job: on push to `main`, run `make deploy`. Sign in to Google Cloud with Workload Identity Federation instead of a stored key. Streamlit Community Cloud redeploys from `main` on its own |
@@ -279,7 +279,7 @@ gh api -X PUT "repos/haydn-s/sourcing-data-project-3/rulesets/$RULESET_ID" --inp
 | Slow cold start | The first request after the service scales to zero loads scikit-learn and downloads the model. `make deploy` turns on startup CPU boost, torch and TensorFlow stay out of the image, and the Streamlit app waits up to 60 seconds |
 | Credentials leak into git | `.gitignore` covers `.env` and key files. gitleaks runs on commit and in CI, and GitHub push protection checks every push. The API reads the public bucket, so it holds no cloud keys, and CI should sign in with Workload Identity Federation instead of stored keys. If a key leaks, rotate it first |
 | Surprise cloud bill | A budget alert on the billing account. Cloud Run scales to zero, caps at two instances, and its free tier covers our traffic. Downloads from the public bucket are billed to us, but the files are small. Tear down after grading |
-| Someone skips the local hooks (`git commit --no-verify`) | CI re-runs commitlint and the pre-commit hooks on every PR, and branch protection blocks the merge until they pass |
+| Someone skips the local hooks (`git commit --no-verify`) | CI re-runs the pre-commit hooks and the secret scan on every PR, and branch protection blocks the merge until they pass |
 | Required review stalls merging when one of us is busy | Keep PRs small. Agree at kickoff to review within a day |
 | Training/serving skew (API transforms differ from training) | Serialize one sklearn `Pipeline`. The API never re-implements preprocessing |
 | Front-end can't reach the API (CORS / timeouts) | Streamlit calls the API server-side through `requests`, so CORS doesn't apply. Add a timeout and a friendly error message. The first request after idle can be slow (cold start) |
