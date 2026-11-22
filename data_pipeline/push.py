@@ -38,7 +38,7 @@ def push(cfg: PipelineConfig, *, force: bool = False) -> str:
     if missing and not force:
         raise SystemExit(
             f"{path} lacks columns the config expects: {missing}. Fix the config or "
-            "data_pipeline/prepare.py, or pass --force to upload it anyway"
+            "data_pipeline/features.py, or pass --force to upload it anyway"
         )
     if not upload(path, remote_uri):
         raise SystemExit(

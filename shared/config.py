@@ -89,7 +89,7 @@ class IngestConfig(_Section):
 
 
 class PrepareConfig(_Section):
-    # Names of feature steps in data_pipeline/prepare.py, applied in order after the join.
+    # Names of feature steps in data_pipeline/features.py, applied in order after the join.
     feature_steps: list[str] = Field(default_factory=list)
     # Keyword arguments for those steps, by step name: {step: {argument: value}}.
     step_options: dict[str, dict[str, Any]] = Field(default_factory=dict)

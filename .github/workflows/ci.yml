@@ -58,7 +58,7 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install dev tooling
-        run: pip install -r requirements-dev.txt
+        run: pip install -r requirements/dev.txt
 
       - name: Run pre-commit hooks on all files
         run: make lint
@@ -76,7 +76,7 @@ jobs:
       - name: Install dependencies
         run: |
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          pip install -r requirements-dev.txt
+          pip install -r requirements/dev.txt
 
       - name: Run tests
         env:
@@ -85,8 +85,8 @@ jobs:
 
   # Add jobs above as the project grows, and list each one under `needs` below.
   # Planned:
-  #   docker: `make docker-smoke`, back in CI once the ML pipeline produces a
-  #     model to train and serve in the image (see ml_pipeline/README.md)
+  #   docker: `make docker-smoke`. It builds the 1.2 GB image, so for now it
+  #     runs locally before Dockerfile changes
   #   deploy: on push to main, run `make deploy`, signing in to Google Cloud with
   #     Workload Identity Federation (no stored keys)
 

@@ -18,19 +18,19 @@ help: ## List available commands
 
 ##@ Setup and checks
 
-venv: ## Create or update the PyDev virtual environment from requirements-pydev.txt
+venv: ## Create or update the PyDev virtual environment from requirements/pydev.txt
 	@if [ ! -d $(VENV) ]; then \
 	  if command -v uv >/dev/null 2>&1; then uv venv --seed --python $(VENV_PYTHON) $(VENV); \
 	  else python$(VENV_PYTHON) -m venv $(VENV); fi; \
 	fi
-	@if command -v uv >/dev/null 2>&1; then uv pip install --python $(VENV)/bin/python -r requirements-pydev.txt; \
-	else $(VENV)/bin/pip install -r requirements-pydev.txt; fi
+	@if command -v uv >/dev/null 2>&1; then uv pip install --python $(VENV)/bin/python -r requirements/pydev.txt; \
+	else $(VENV)/bin/pip install -r requirements/pydev.txt; fi
 	@echo ""
 	@echo "Done. Activate it with: source $(VENV)/bin/activate, then run: make setup"
 
 setup: ## Install dependencies and git hooks (once per clone, inside your venv)
 	@if [ -z "$$VIRTUAL_ENV" ]; then echo "Warning: no virtualenv is active. Run make venv, then source $(VENV)/bin/activate."; fi
-	pip install -r requirements-dev.txt
+	pip install -r requirements/dev.txt
 	@if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 	pre-commit install
 

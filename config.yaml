@@ -130,11 +130,11 @@ ingest:
       options:
         columns: [decimal_year, mass_gt, uncertainty_gt]
 
-# Stage 2, prepare: clean each source (data_pipeline/prepare.py), join them,
-# then run these feature steps in order. Stage 3, push, uploads the result
+# Stage 2, prepare: clean each source and join them (data_pipeline/clean.py),
+# then run these feature steps in order (data_pipeline/features.py). Stage 3, push, uploads the result
 # to data.remote_uri.
 prepare:
-  # Names registered with @feature_step in data_pipeline/prepare.py, run in order.
+  # Names registered with @feature_step in data_pipeline/features.py, run in order.
   feature_steps: [daily_lags, tomorrow_label]
   step_options:                   # keyword arguments for each step
     tomorrow_label:
