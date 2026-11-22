@@ -1,7 +1,7 @@
 """ML pipeline, stage 1 of 4: load the configured processed table."""
 
 from __future__ import annotations
-
+ 
 import pandas as pd
 
 from shared.config import PipelineConfig

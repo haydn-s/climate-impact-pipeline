@@ -84,7 +84,7 @@ def _feature_metadata(
                 "max": maximum,
                 "example": float(numeric[0]),
             }
-        )
+        ) 
         example[name] = float(numeric[0])
 
     for name in cfg.features.categorical:
