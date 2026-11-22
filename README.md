@@ -14,7 +14,7 @@
 | 📈 **Experiment tracking** | [wandb.ai/dhs27-duke-university/sourcing-data-project-3](https://wandb.ai/dhs27-duke-university/sourcing-data-project-3) (TODO: make the project public) |
 | 🗂️ **Processed dataset** | [`processed/nc_weather_daily.parquet`](https://storage.googleapis.com/climate-impact-pipeline-data/processed/nc_weather_daily.parquet) (public, no login) |
 
-> 🚧 **Status (November 22, 2026).** The data and ML pipelines run end to end. The data pipeline fetches six public sources and publishes the cleaned, featured dataset to Cloud Storage. Training pulls that table, logs each run to W&B, and publishes the model to the bucket. The API serves that model on Google Cloud Run, and the Streamlit app on Streamlit Community Cloud calls it. Both are linked above. Sections marked **TODO** get filled in as each piece lands.
+> 🚧 **Status (November 22, 2026).** Every piece runs end to end. The data pipeline fetches six public sources and publishes the cleaned, featured dataset to Cloud Storage. Training pulls that table, logs each run to W&B, and publishes the model to the bucket. The API serves that model on Google Cloud Run, and the Streamlit app on Streamlit Community Cloud calls it. Both are linked above. Still to do before submission, each marked **TODO**: the model results, the ethics review, and making the W&B project public.
 
 *AIPI 510, Module Project 3 (Data/ML Engineering), Duke University*
 **Due:** Tuesday, November 24, 2026, 11:30 AM EST
@@ -255,8 +255,8 @@ That turns the table above into measured numbers. It's listed as a stretch task 
 ├── Makefile                 # Dev commands, grouped by pipeline (run `make help`)
 ├── configs/
 │   └── demo.yaml            # Variant: runs both pipelines on a synthetic table, apart from the real data
-├── Dockerfile               # One image that serves the API and runs the pipeline commands. Runs on Cloud Run
-├── entrypoint.sh            # Dispatches `serve` | any other command
+├── Dockerfile               # One image that serves the API, trains the model, and runs the pipeline commands. Runs on Cloud Run
+├── entrypoint.sh            # Dispatches `serve` | `train` | any other command
 ├── .dockerignore            # Keeps data, models, secrets, and PyDev out of the image
 ├── .env.example             # Environment variables to copy into .env (no secrets committed)
 ├── .pre-commit-config.yaml  # Local git hooks: gitleaks, ruff, file checks
@@ -291,10 +291,7 @@ That turns the table above into measured numbers. It's listed as a stretch task 
 │   └── docker_smoke_test.sh # Checks the image's packages and commands load (make docker-smoke)
 ├── tests/                   # Mirrors the packages: shared/, data_pipeline/, ml_pipeline/, api/
 │   ├── test_layout.py       # Each package imports only what it may (the pipelines never import each other)
-│   ├── ml_pipeline/         # Training data, metrics, and model artifact tests
 │   └── sample_request.json  # Example payload for curl / Postman
-├── notebooks/               # Planned (task A1)
-│   └── eda.ipynb            # Exploration only; the pipeline never depends on notebooks
 └── docs/
     └── DEVELOPMENT_PLAN.md
 ```
@@ -595,13 +592,19 @@ Build the image. `make docker-build` builds for `linux/amd64` without attestatio
 make docker-build
 ```
 
-Serve the API (the default command) on port 8080, with a trained model in `models/`. A `train` command comes with the ML pipeline:
+Train the model inside the container. The `train` command runs `python -m ml_pipeline.train` with `config.yaml` (set `CONFIG` to use another file) and takes the same options, such as `--set model.type=dummy`. Mount `models/` to keep the result. W&B reads its key from `.env`; without one, add `-e WANDB_MODE=disabled`:
+
+```bash
+docker run --rm --env-file .env -v "$PWD/models:/app/models" project3 train
+```
+
+Serve the API (the default command) on port 8080, with a trained model in `models/`:
 
 ```bash
 docker run --rm -p 8080:8080 --env-file .env -v "$PWD/models:/app/models" project3
 ```
 
-**Smoke test.** This builds the image and checks, as a non-root user, that its packages import and the data pipeline commands start. It doesn't train a model or call the API, and it isn't part of CI. Run it locally before changing the Dockerfile:
+**Smoke test.** This builds the image and checks, as a non-root user, that its packages import and that the data pipeline and `train` commands start. It doesn't train a model or call the API, and it isn't part of CI. Run it locally before changing the Dockerfile:
 
 ```bash
 make docker-smoke
@@ -741,7 +744,7 @@ curl -X POST https://project3-api-vuyxgk2a6q-ue.a.run.app/predict \
 - **Provenance.** NOAA collects these readings at airport weather stations to support aviation and to keep the climate record. Using them to describe how unusual a day is fits that purpose. The data is in the public domain.
 - **Representativeness.** Five airports can't stand for all of North Carolina. Airports sit in open, often paved areas that can run warmer than the countryside around them, and the model knows nothing about other places or about the hours between the daily high and low.
 - **A moving baseline.** "Normal" here means 1991–2020. As the climate warms, more recent days land in `extreme high` (12.2% of days in 2021–2026, against 8.4% in 1991–2020), and the classes shift in the test years, so recent performance can differ from historical performance. That's a real limitation, and it's also the climate signal the index is meant to show.
-- **Intended use.** A rough, curiosity-level gauge. It isn't a forecast, and no one should base safety decisions on it. Heat and cold warnings come from the [National Weather Service](https://www.weather.gov), and the front-end should say so.
+- **Intended use.** A rough, curiosity-level gauge. It isn't a forecast, and no one should base safety decisions on it. Heat and cold warnings come from the [National Weather Service](https://www.weather.gov). The app labels each prediction as an estimate, not an official advisory.
 - **Privacy.** The inputs are weather readings, not personal data, and the API doesn't store them.
 
 Questions to answer:
@@ -877,5 +880,3 @@ Licensed under the [Apache License 2.0](LICENSE).
 - USDA National Agricultural Statistics Service: Quick Stats (Honey Bee Colonies; Honey).
 - U.S. Energy Information Administration: Open Data API (electricity retail sales).
 - NASA JPL: GRACE and GRACE-FO Greenland mass anomaly time series (JPL RL06.3 mascon, CRI filtered), distributed by PO.DAAC.
-
-TODO: any other acknowledgments.

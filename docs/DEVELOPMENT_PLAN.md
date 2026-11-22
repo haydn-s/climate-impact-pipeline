@@ -143,7 +143,7 @@ The `/predict` request schema is generated from the model's `metadata.json`, so 
 - [ ] Jothi: run `make venv`, `source PyDev/bin/activate`, and `make setup`
 - [x] Google Cloud project with billing (`climate-impact-pipeline`). Still to do: a budget alert (see decision 10)
 - [x] Create the Cloud Storage bucket `climate-impact-pipeline-data` (`us-east1`, versioning on, public read)
-- [ ] Run `make deploy-setup` once: Cloud Run, Artifact Registry, and the API's service account
+- [x] Run `make deploy-setup` once: Cloud Run, Artifact Registry, and the API's service account
 - [ ] Apply for the W&B academic plan with a duke.edu email, create a team, invite Jothi, and create a **public** project
 - [x] Scaffold the code layout: folders, `.env.example`, `config.yaml`, `requirements.txt` (plus the dataset-agnostic framework; see Phase 1)
 
@@ -183,10 +183,10 @@ The `/predict` request schema is generated from the model's `metadata.json`, so 
 |---|---|---|---|---|
 | B1 | `api/schemas.py` + `api/main.py`: FastAPI with `/health` and `/predict`, loading a model from `MODEL_URI` (a local path, or a `gs://` URI downloaded to a temp folder). Start with a **stub model** trained quickly on the raw data | `curl` against localhost returns a prediction | | |
 | B2 | `tests/test_api.py` + `tests/sample_request.json` | `pytest` passes | | |
-| B3 | `Dockerfile` + `entrypoint.sh`: one image, `train` and `serve` commands, `serve` is the default and listens on `$PORT` (8080), which Cloud Run sets. Build for `linux/amd64`, the platform Cloud Run runs | `docker run ... train` and `docker run -p 8080:8080 ... serve` both work locally | | |
+| B3 | `Dockerfile` + `entrypoint.sh`: one image, `train` and `serve` commands, `serve` is the default and listens on `$PORT` (8080), which Cloud Run sets. Build for `linux/amd64`, the platform Cloud Run runs | `docker run ... train` and `docker run -p 8080:8080 ... serve` both work locally | Haydn | #2, #14 |
 | B4 | Deploy the API to Google Cloud Run: `make deploy-setup` once, then `make deploy`, which pushes the image to Artifact Registry and deploys a public service that serves `models/latest/`. Steps are in README §Usage 5 | The Cloud Run URL answers `/predict` via `curl` | Haydn | #12 (live Nov 22) |
-| B5 | Front-end: a form for the frozen feature list (it can be built from `/metadata`) → `POST /predict` → show the prediction, confidence, and a short explanation and disclaimer. Handle API errors and timeouts | Works locally against both the local API and the deployed API | Jothi | |
-| B6 | Deploy the front-end with the API's URL in its settings | Public link works in an incognito window | Jothi | |
+| B5 | Front-end: a form for the frozen feature list (it can be built from `/metadata`) → `POST /predict` → show the prediction, confidence, and a short explanation and disclaimer. Handle API errors and timeouts | Works locally against both the local API and the deployed API | Jothi | #22 |
+| B6 | Deploy the front-end with the API's URL in its settings | Public link works in an incognito window | Haydn | live Nov 22 |
 
 On Nov 22 the front-end moved to Jothi, who's designing it, and Haydn's Streamlit draft (#13) was closed.
 
@@ -294,16 +294,16 @@ Maps each assignment requirement to where we satisfy it. Tick these off before s
 
 **Repository**
 
-- [ ] Code for preprocessing, training, serving, and deployment → `data_pipeline/`, `ml_pipeline/`, `shared/`, `api/`, `Dockerfile`
-- [ ] `config.yaml` controls pipeline parameters
-- [ ] `requirements.txt`
-- [ ] `Dockerfile` that runs the full project, with `train` and `serve` entry points
-- [ ] Docs: how to train → README §Usage 2
-- [ ] Docs: how to build and test the API locally → README §Usage 3–4
-- [ ] Docs: how to deploy to the cloud → README §Usage 5–6
-- [ ] Experiment tracking logs parameters, metrics, and artifacts (model, plots)
-- [ ] Branches and PRs, with ≥1 PR from each member
-- [ ] Clear project structure and commit history
+- [x] Code for preprocessing, training, serving, and deployment → `data_pipeline/`, `ml_pipeline/`, `shared/`, `api/`, `frontend/`, `Dockerfile`, `entrypoint.sh`
+- [x] `config.yaml` controls pipeline parameters
+- [x] `requirements.txt`
+- [x] `Dockerfile` that runs the full project, with `train` and `serve` entry points (both checked in the container, Nov 22)
+- [x] Docs: how to train → README §Usage 2
+- [x] Docs: how to build and test the API locally → README §Usage 3–4
+- [x] Docs: how to deploy to the cloud → README §Usage 5–6
+- [ ] Experiment tracking logs parameters, metrics, and artifacts (model, plots). TODO (Jothi): parameters and metrics are logged, but the model and plots aren't yet
+- [x] Branches and PRs, with ≥1 PR from each member
+- [ ] Clear project structure and commit history. TODO: delete the branches of merged and closed PRs
 
 **Pipeline**
 
@@ -323,17 +323,17 @@ Maps each assignment requirement to where we satisfy it. Tick these off before s
 
 **Front-end**
 
-- [ ] Built with Streamlit, Gradio, or NextJS
-- [ ] Publicly hosted and linked in the README
-- [ ] Sends requests to the deployed API
-- [ ] Displays predictions in an interactive, intuitive way
+- [x] Built with Streamlit, Gradio, or NextJS
+- [x] Publicly hosted and linked in the README
+- [x] Sends requests to the deployed API
+- [x] Displays predictions in an interactive, intuitive way
 
 **README**
 
-- [ ] Project overview and goals
-- [ ] Dataset description and link
-- [ ] Model architecture and evaluation
-- [ ] Cloud services used
-- [ ] Setup and usage instructions
-- [ ] Links to the deployed API and front-end
-- [ ] Ethics and limitations reflection
+- [x] Project overview and goals
+- [x] Dataset description and link
+- [ ] Model architecture and evaluation. TODO: the baseline row and the results paragraph
+- [x] Cloud services used
+- [x] Setup and usage instructions
+- [x] Links to the deployed API and front-end
+- [ ] Ethics and limitations reflection. TODO: review the draft together
