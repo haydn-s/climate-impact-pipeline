@@ -10,7 +10,7 @@
 # (docker buildx build --platform linux/amd64 --provenance=false --sbom=false ...)
 
 # Python matches PyDev. Dependabot proposes base image updates.
-FROM python:3.12.15-slim
+FROM python:3.15.0-slim
 
 COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:1.1.0 /lambda-adapter /opt/extensions/lambda-adapter
 
