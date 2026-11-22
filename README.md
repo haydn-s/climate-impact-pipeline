@@ -232,8 +232,7 @@ That turns the table above into measured numbers. It's listed as a stretch task 
 ├── entrypoint.sh            # Dispatches `serve` | any other command
 ├── .dockerignore            # Keeps data, models, secrets, and PyDev out of the image
 ├── .env.example             # Environment variables to copy into .env (no secrets committed)
-├── .commitlintrc.yaml       # Commit message rules (Conventional Commits)
-├── .pre-commit-config.yaml  # Local git hooks: commitlint, gitleaks, ruff, file checks
+├── .pre-commit-config.yaml  # Local git hooks: gitleaks, ruff, file checks
 ├── .github/
 │   ├── workflows/ci.yml     # CI checks run on every PR
 │   ├── rulesets/            # Branch protection for main, kept as code
@@ -276,7 +275,6 @@ That turns the table above into measured numbers. It's listed as a stretch task 
 
 - [uv](https://docs.astral.sh/uv/) (recommended, and it installs Python 3.12 for you) or Python 3.12
 - `make` (preinstalled on macOS and Linux. On Windows, use WSL or Git Bash)
-- [Node.js](https://nodejs.org/) 22.12+ (`make pr-ready` uses it to run commitlint)
 - [Docker](https://docs.docker.com/get-docker/)
 - The [Google Cloud CLI](https://cloud.google.com/sdk/docs/install) and access to project `climate-impact-pipeline`, to upload data and models. Not needed just to train: the processed data is publicly readable. Install it with Homebrew (`brew install --cask google-cloud-sdk`) or Google's installer (`curl https://sdk.cloud.google.com | bash`). If `gcloud` then isn't found, open a new terminal or run `source ~/.zshrc`, since the installer only updates new shells
 - The [AWS CLI v2](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) and a login to our AWS account (ask the account owner), to deploy the API to Lambda
@@ -289,7 +287,7 @@ git clone git@github.com:haydn-s/sourcing-data-project-3.git
 cd sourcing-data-project-3
 make venv              # creates PyDev (Python 3.12) and installs requirements-pydev.txt
 source PyDev/bin/activate
-make setup             # installs the git hooks: commitlint, gitleaks, ruff, file checks
+make setup             # installs the git hooks: gitleaks, ruff, file checks
 cp .env.example .env   # then fill in what you need (Set up your .env)
 ```
 
@@ -719,7 +717,7 @@ All work goes through **feature branches and pull requests** into `main`. See th
 
 ### Commit messages
 
-Commits follow [Conventional Commits](https://www.conventionalcommits.org/), enforced by [commitlint](https://commitlint.js.org/) with the rules in [`.commitlintrc.yaml`](.commitlintrc.yaml):
+We suggest [Conventional Commits](https://www.conventionalcommits.org/) for commit messages and PR titles. Nothing enforces it, locally or in CI:
 
 ```
 <type>(<optional scope>): <lowercase summary>
@@ -729,12 +727,7 @@ fix(data): handle missing values in age column
 docs: add dataset description to README
 ```
 
-Allowed types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`. Suggested scopes: `data`, `pipeline`, `api`, `frontend`, `docker`, `deploy`, `deps`.
-
-commitlint runs in two places:
-
-- **Locally**, as a `commit-msg` git hook installed by `pre-commit install`. It rejects bad messages before the commit is created.
-- **In CI**, on every commit in a PR *and* on the PR title.
+Common types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`. Suggested scopes: `data`, `pipeline`, `api`, `frontend`, `docker`, `deploy`, `deps`.
 
 ### Code style and the pre-PR check
 
@@ -747,7 +740,7 @@ Our code style lives in [`pyproject.toml`](pyproject.toml), so the hooks, CI, an
 **Before opening a PR, run:**
 
 ```bash
-make pr-ready PR_TITLE="feat(api): add /predict endpoint"
+make pr-ready
 ```
 
 It stops at the first failure. It checks that:
@@ -756,7 +749,6 @@ It stops at the first failure. It checks that:
 2. You have no uncommitted changes and your branch isn't behind `main` (warnings only)
 3. Every pre-commit hook passes on all files (`make lint`)
 4. The tests pass (`make test`)
-5. Every commit on your branch, and the PR title if you pass one, follows Conventional Commits
 
 Passing locally means CI should pass too. The one check CI adds is a gitleaks scan of every commit in the PR; locally, gitleaks runs on each commit through the hook. `make format` auto-fixes what it can.
 
@@ -771,8 +763,6 @@ Passing locally means CI should pass too. The one check CI adds is a gitleaks sc
 | `make serve` | Run the API locally with auto-reload |
 | `make docker-build` | Build the image for Lambda (`linux/amd64`) |
 | `make docker-smoke` | Build the image and check its packages and commands load |
-| `make lint-commits` | Lint the commit messages on your branch |
-| `make lint-title PR_TITLE="..."` | Lint a PR title |
 | `make pr-ready` | Everything above, before you open a PR |
 
 ### CI checks
@@ -781,7 +771,6 @@ Passing locally means CI should pass too. The one check CI adds is a gitleaks sc
 
 | Job | What it checks |
 |---|---|
-| **Commit messages & PR title** | commitlint on each commit in the PR and on the PR title |
 | **Secret scan (gitleaks)** | Scans every commit in the PR for API keys, tokens, and private keys |
 | **Lint (pre-commit hooks)** | `make lint`: file checks (large files, whitespace, YAML/JSON/TOML syntax) plus ruff lint and format |
 | **Tests (pytest)** | `make test`: config validation, storage, the data pipeline (ingest, prepare, push), package boundaries, and the API's model loading |
@@ -800,7 +789,7 @@ CI calls the same `make` targets you run locally. See [Code style and the pre-PR
 - Approvals are dismissed when new commits are pushed
 - All review conversations must be resolved
 - The **CI passed** check must succeed
-- **Squash merge only.** Each PR becomes one commit on `main`, titled with the PR title, so `main` history follows Conventional Commits. Merged branches are deleted automatically
+- **Squash merge only.** Each PR becomes one commit on `main`, titled with the PR title, so a clear PR title keeps `main` history readable. Merged branches are deleted automatically
 - No bypass, admins included
 
 [`.github/CODEOWNERS`](.github/CODEOWNERS) lists both of us, so GitHub automatically requests a review from whoever didn't open the PR.
