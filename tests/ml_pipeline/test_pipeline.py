@@ -51,8 +51,9 @@ def test_pull_downloads_and_selects_configured_columns(
 
 
 def test_pull_requires_a_remote_uri(tmp_path: Path) -> None:
+    # config.yaml sets data.remote_uri, so clear it to test the missing case.
     with pytest.raises(ValueError, match=r"data\.remote_uri"):
-        pull.pull_training_data(config(tmp_path))
+        pull.pull_training_data(config(tmp_path, "data.remote_uri=null"))
 
 
 def test_evaluate_uses_the_configured_regression_metric(tmp_path: Path) -> None:

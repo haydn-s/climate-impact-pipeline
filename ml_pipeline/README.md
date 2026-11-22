@@ -10,7 +10,7 @@ the data pipeline has uploaded its processed table.
 - `task` selects classification or regression. `model.type` selects `dummy`, `linear`, `random_forest`, `hist_gradient_boosting`, or `xgboost`; `model.params` are passed to that estimator, with `seed` used as its random state when supported. XGBoost must be installed and pinned in `requirements.txt` before selecting it.
 - `split.test_size` and `split.val_size` are fractions of the full table. The model fits on the training split, then the configured `evaluation.primary_metric` is reported for validation and test.
 - `tracking` configures the W&B project and team. Set up W&B authentication before running, or set `WANDB_MODE=disabled` to train without recording a W&B run.
-- Each run writes `model.joblib` and `metadata.json` under `output.local_dir/<run-id>/`, and updates `output.local_dir/latest/`. If `output.remote_prefix` is set, both artifacts are uploaded under `<prefix>/<run-id>/` and `<prefix>/latest/`; publishing requires Google Cloud write credentials. 
+- Each run writes `model.joblib` and `metadata.json` under `output.local_dir/<run-id>/`, and updates `output.local_dir/latest/`. If `output.remote_prefix` is set, both artifacts are uploaded under `<prefix>/<run-id>/` and `<prefix>/latest/`; publishing requires Google Cloud write credentials.
 
 ## What the API needs from it
 
