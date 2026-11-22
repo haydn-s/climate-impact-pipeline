@@ -83,7 +83,7 @@ flowchart LR
 | Cloud | Google Cloud: Cloud Storage (data and models), Artifact Registry (container images), and Cloud Run (API) |
 | Front-end | Streamlit, on Streamlit Community Cloud |
 | Tests | pytest, FastAPI `TestClient` |
-| Local environment | PyDev: a Python 3.12 venv built from `requirements-pydev.txt` with `make venv` |
+| Local environment | PyDev: a Python 3.12 venv built from `requirements/pydev.txt` with `make venv` |
 | Code style | ruff, configured in `pyproject.toml`. `make pr-ready` before every PR |
 | CI & conventions | GitHub Actions, pre-commit (ruff) |
 
@@ -169,7 +169,7 @@ The `/predict` request schema is generated from the model's `metadata.json`, so 
 
 | ID | Task | Done when | Owner | PR |
 |---|---|---|---|---|
-| A1 | EDA notebook: understand the data, find cleaning needs, check for target leakage | Short findings written in the notebook | | |
+| A1 | EDA notebook: understand the data, find cleaning needs, check for target leakage | Dropped (Nov 22): we keep notebooks out of the repo. The README's Dataset section covers the label and the leakage risk from `tomorrow_high_f` | | |
 | A2 | `data_pipeline/`: `ingest.py`, `prepare.py`, `push.py`: fetch raw data from APIs → clean, join, and add features → upload the processed table to Cloud Storage under `processed/` | Processed file is in Cloud Storage. Scripts are re-runnable | Haydn | #11 |
 | A3 | `shared/config.py` + `ml_pipeline/data.py`: load config, download processed data from Cloud Storage with google-cloud-storage (add it to `requirements.txt`). Read anonymously, since the bucket is public, so graders can run it | `python -c` smoke test loads a DataFrame, with and without Google credentials | Jothi | #17 |
 | A4 | `ml_pipeline/features.py`: `ColumnTransformer` (impute, scale, encode) driven by the feature lists in config | Unit test passes on a small sample | Jothi | #17 |
@@ -183,7 +183,7 @@ The `/predict` request schema is generated from the model's `metadata.json`, so 
 |---|---|---|---|---|
 | B1 | `api/schemas.py` + `api/main.py`: FastAPI with `/health` and `/predict`, loading a model from `MODEL_URI` (a local path, or a `gs://` URI downloaded to a temp folder). Start with a **stub model** trained quickly on the raw data | `curl` against localhost returns a prediction | | |
 | B2 | `tests/test_api.py` + `tests/sample_request.json` | `pytest` passes | | |
-| B3 | `Dockerfile` + `entrypoint.sh`: one image, `train` and `serve` commands, `serve` is the default and listens on `$PORT` (8080), which Cloud Run sets. Build for `linux/amd64`, the platform Cloud Run runs | `docker run ... train` and `docker run -p 8080:8080 ... serve` both work locally | Haydn | #2, #14 |
+| B3 | `Dockerfile` + `scripts/entrypoint.sh`: one image, `train` and `serve` commands, `serve` is the default and listens on `$PORT` (8080), which Cloud Run sets. Build for `linux/amd64`, the platform Cloud Run runs | `docker run ... train` and `docker run -p 8080:8080 ... serve` both work locally | Haydn | #2, #14 |
 | B4 | Deploy the API to Google Cloud Run: `make deploy-setup` once, then `make deploy`, which pushes the image to Artifact Registry and deploys a public service that serves `models/latest/`. Steps are in README §Usage 5 | The Cloud Run URL answers `/predict` via `curl` | Haydn | #12 (live Nov 22) |
 | B5 | Front-end: a form for the frozen feature list (it can be built from `/metadata`) → `POST /predict` → show the prediction, confidence, and a short explanation and disclaimer. Handle API errors and timeouts | Works locally against both the local API and the deployed API | Jothi | #22 |
 | B6 | Deploy the front-end with the API's URL in its settings | Public link works in an incognito window | Haydn | live Nov 22 |
@@ -294,7 +294,7 @@ Maps each assignment requirement to where we satisfy it. Tick these off before s
 
 **Repository**
 
-- [x] Code for preprocessing, training, serving, and deployment → `data_pipeline/`, `ml_pipeline/`, `shared/`, `api/`, `frontend/`, `Dockerfile`, `entrypoint.sh`
+- [x] Code for preprocessing, training, serving, and deployment → `data_pipeline/`, `ml_pipeline/`, `shared/`, `api/`, `frontend/`, `Dockerfile`, `scripts/entrypoint.sh`
 - [x] `config.yaml` controls pipeline parameters
 - [x] `requirements.txt`
 - [x] `Dockerfile` that runs the full project, with `train` and `serve` entry points (both checked in the container, Nov 22)

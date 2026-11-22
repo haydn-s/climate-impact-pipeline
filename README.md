@@ -13,6 +13,7 @@
 | 📖 **API docs (Swagger UI)** | [`https://project3-api-vuyxgk2a6q-ue.a.run.app/docs`](https://project3-api-vuyxgk2a6q-ue.a.run.app/docs) |
 | 📈 **Experiment tracking** | [wandb.ai/dhs27-duke-university/sourcing-data-project-3](https://wandb.ai/dhs27-duke-university/sourcing-data-project-3) (public, no login) |
 | 🗂️ **Processed dataset** | [`processed/nc_weather_daily.parquet`](https://storage.googleapis.com/climate-impact-pipeline-data/processed/nc_weather_daily.parquet) (public, no login) |
+| 🧾 **Raw data** | [`raw/manifest.json`](https://storage.googleapis.com/climate-impact-pipeline-data/raw/manifest.json) lists each source's unchanged snapshot (`raw/<name>.csv`, e.g. [`raw/weather.csv`](https://storage.googleapis.com/climate-impact-pipeline-data/raw/weather.csv)), with where and when it was fetched (public, no login) |
 
 > 🚧 **Status (November 22, 2026).** Every piece runs end to end. The data pipeline fetches six public sources and publishes the cleaned, featured dataset to Cloud Storage. Training pulls that table, logs each run to W&B, and publishes the model to the bucket. The API serves that model on Google Cloud Run, and the Streamlit app on Streamlit Community Cloud calls it. Both are linked above. Still to do before submission, each marked **TODO**: the model results and the ethics review.
 
@@ -39,6 +40,7 @@
     - [Prerequisites](#prerequisites)
     - [Install](#install)
     - [The PyDev environment](#the-pydev-environment)
+    - [Requirements files](#requirements-files)
     - [Authenticate](#authenticate)
     - [Set up Cloud Storage (one-time)](#set-up-cloud-storage-one-time)
     - [Set up your .env](#set-up-your-env)
@@ -248,15 +250,15 @@ That turns the table above into measured numbers. It's listed as a stretch task 
 ```
 .
 ├── config.yaml              # All parameters, in three parts: shared, data pipeline, ML pipeline
-├── requirements.txt         # Pipeline + API runtime dependencies (pinned; used by Docker, CI, PyDev)
-├── requirements-dev.txt     # Dev tooling: pre-commit, pytest, httpx2
-├── requirements-pydev.txt   # PyDev environment: adds notebooks and deep learning (local only)
+├── requirements.txt         # Pipeline + API runtime dependencies (pinned; Docker image, CI, PyDev)
+├── requirements/            # The other environments' dependencies (see Requirements files)
+│   ├── dev.txt              # Dev tooling: pre-commit, pytest, httpx2
+│   └── pydev.txt            # PyDev environment: adds notebooks and deep learning (local only)
 ├── pyproject.toml           # Shared code style (ruff) and pytest settings
 ├── Makefile                 # Dev commands, grouped by pipeline (run `make help`)
 ├── configs/
 │   └── demo.yaml            # Variant: runs both pipelines on a synthetic table, apart from the real data
 ├── Dockerfile               # One image that serves the API, trains the model, and runs the pipeline commands. Runs on Cloud Run
-├── entrypoint.sh            # Dispatches `serve` | `train` | any other command
 ├── .dockerignore            # Keeps data, models, secrets, and PyDev out of the image
 ├── .env.example             # Environment variables to copy into .env (no secrets committed)
 ├── .pre-commit-config.yaml  # Local git hooks: gitleaks, ruff, file checks
@@ -288,6 +290,7 @@ That turns the table above into measured numbers. It's listed as a stretch task 
 │   ├── app.py               # Builds its form from the API's /metadata, then calls /predict
 │   └── requirements.txt     # Front-end-only dependencies (Streamlit Community Cloud installs these)
 ├── scripts/
+│   ├── entrypoint.sh        # The image's entry point: dispatches `serve` | `train` | any other command
 │   └── docker_smoke_test.sh # Checks the image's packages and commands load (make docker-smoke)
 ├── tests/                   # Mirrors the packages: shared/, data_pipeline/, ml_pipeline/, api/
 │   ├── test_layout.py       # Each package imports only what it may (the pipelines never import each other)
@@ -313,7 +316,7 @@ That turns the table above into measured numbers. It's listed as a stretch task 
 ```bash
 git clone git@github.com:haydn-s/sourcing-data-project-3.git
 cd sourcing-data-project-3
-make venv              # creates PyDev (Python 3.12) and installs requirements-pydev.txt
+make venv              # creates PyDev (Python 3.12) and installs requirements/pydev.txt
 source PyDev/bin/activate
 make setup             # installs the git hooks: gitleaks, ruff, file checks
 cp .env.example .env   # then fill in what you need (Set up your .env)
@@ -324,7 +327,7 @@ cp .env.example .env   # then fill in what you need (Set up your .env)
 ```bash
 uv venv --seed --python 3.12 PyDev   # or: python3.12 -m venv PyDev
 source PyDev/bin/activate            # Windows: PyDev\Scripts\activate
-pip install -r requirements-pydev.txt
+pip install -r requirements/pydev.txt
 pre-commit install
 ```
 
@@ -332,7 +335,7 @@ pre-commit install
 
 ### The PyDev environment
 
-PyDev is our shared local environment for data science and deep learning work (Python 3.12). It's defined in [`requirements-pydev.txt`](requirements-pydev.txt), which includes [`requirements.txt`](requirements.txt) (the pipeline and API, plus google-cloud-storage, FastAPI, and Uvicorn), with every version pinned:
+PyDev is our shared local environment for data science and deep learning work (Python 3.12). It's defined in [`requirements/pydev.txt`](requirements/pydev.txt), which includes [`requirements.txt`](requirements.txt) (the pipeline and API, plus google-cloud-storage, FastAPI, and Uvicorn), with every version pinned:
 
 | Area | Libraries |
 |---|---|
@@ -343,7 +346,7 @@ PyDev is our shared local environment for data science and deep learning work (P
 | Notebooks | jupyterlab, ipykernel, ipywidgets |
 | Tracking and utilities | wandb, pyyaml, python-dotenv, tqdm |
 | Pipeline and serving | google-cloud-storage, requests, FastAPI, Uvicorn, pydantic (from `requirements.txt`) |
-| Dev tooling | pre-commit, pytest, httpx2 (from `requirements-dev.txt`) |
+| Dev tooling | pre-commit, pytest, httpx2 (from `requirements/dev.txt`) |
 
 To use PyDev from Jupyter or VS Code notebooks, register it as a kernel once:
 
@@ -353,16 +356,18 @@ python -m ipykernel install --user --name PyDev
 
 **Hardware notes.** On Apple Silicon, PyTorch can use the GPU through MPS (`torch.backends.mps.is_available()`), while TensorFlow runs on the CPU unless you add Apple's optional `tensorflow-metal` plugin. torch 2.12 and newer need macOS 14 or later.
 
-**Requirements files.** Each environment installs only what it needs:
+### Requirements files
 
-| File | Installed by | Contents |
-|---|---|---|
-| `requirements.txt` | Docker image, CI, PyDev | Runtime dependencies for the pipeline and API |
-| `requirements-dev.txt` | CI, PyDev | pre-commit, pytest, httpx2 |
-| `requirements-pydev.txt` | PyDev (local only) | Both files above, plus notebooks, extra plotting, and deep learning |
-| `frontend/requirements.txt` | Streamlit Community Cloud | Streamlit and requests for the prediction UI |
+There are four requirements files because four different things install the project, and each one should get only what it needs. Installing everything everywhere would put several GB of deep learning libraries in the API's image, and break the live app.
 
-Keeping torch and TensorFlow out of `requirements.txt` keeps the API's Docker image and CI runs small. Shared packages are pinned only in `requirements.txt`, so PyDev and the image always match. That matters most for scikit-learn: a model saved with one version may not load in another, and the API logs a warning when they differ.
+| File | Installed by | What's in it | Why it's separate |
+|---|---|---|---|
+| [`requirements.txt`](requirements.txt) | The Docker image (so Cloud Run), CI's test job, PyDev | Pinned runtime packages for the data pipeline, training, and the API | Everything in it ships in the API's image, so it stays lean. It stays at the repo root, where pip, the Dockerfile, CI, and the assignment expect it |
+| [`requirements/dev.txt`](requirements/dev.txt) | CI, `make setup`, PyDev | pre-commit, pytest, httpx2 | Tools for checking the code, not running it, so they stay out of the image. CI's lint job installs only this file, so it starts in seconds |
+| [`requirements/pydev.txt`](requirements/pydev.txt) | `make venv` (local only) | Both files above, plus notebooks, extra plotting, XGBoost, and deep learning | torch and TensorFlow are several GB, and nothing in the project imports them: they're for notebooks and other coursework. So the image and CI never install them |
+| [`frontend/requirements.txt`](frontend/requirements.txt) | Streamlit Community Cloud | Streamlit and requests | The app only calls the API over HTTP, so it needs none of the pipeline's packages. Streamlit installs the requirements file next to `app.py` before the one at the root, so it has to stay in `frontend/`. If it moved, Streamlit would install the root file, which has no Streamlit, and the live app would break |
+
+**Each version is pinned once.** `requirements/pydev.txt` pulls in the other two files with `-r` rather than repeating their pins, so PyDev, CI, and the Docker image always run the same versions. That matters most for scikit-learn: a model saved with one version may not load in another, and the API logs a warning when they differ. The only pin repeated anywhere is `requests` in `frontend/requirements.txt`, which Streamlit installs on its own.
 
 ### Authenticate
 
@@ -867,7 +872,6 @@ These are deferred until the code exists:
 - **Editor format-on-save.** Shared `.vscode/settings.json` and `extensions.json` that install the Ruff extension and format on save, once we confirm we both use VS Code or Cursor. Until then, `make format` does the same job.
 - **Project-specific checks as pre-commit hooks.** Small scripts in `scripts/hooks/` that pre-commit runs on every commit. For example:
   - Every feature in `config.yaml` appears in the API's request schema (after task B1)
-  - Notebooks are committed with outputs cleared (once `notebooks/` has content)
 
 ## License & Acknowledgments
 

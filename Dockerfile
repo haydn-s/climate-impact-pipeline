@@ -32,7 +32,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 
-COPY entrypoint.sh config.yaml ./
+COPY scripts/entrypoint.sh config.yaml ./
 COPY shared/ shared/
 COPY data_pipeline/ data_pipeline/
 COPY ml_pipeline/ ml_pipeline/
