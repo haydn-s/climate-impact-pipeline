@@ -96,6 +96,11 @@ RUNTIME_SA := $(SERVICE)@$(GCP_PROJECT).iam.gserviceaccount.com
 
 deploy-setup: ## Once per project: enable Cloud Run and Artifact Registry, create the image repository and service account
 	gcloud services enable run.googleapis.com artifactregistry.googleapis.com iam.googleapis.com --project $(GCP_PROJECT)
+	@# A newly enabled API can take a minute to answer, so wait for Artifact Registry.
+	@for i in $$(seq 1 24); do \
+	  gcloud artifacts repositories list --location $(GCP_REGION) --project $(GCP_PROJECT) >/dev/null 2>&1 && break; \
+	  if [ $$i -eq 1 ]; then echo "Waiting for Artifact Registry to activate..."; fi; sleep 5; \
+	done
 	@gcloud artifacts repositories describe project3 --location $(GCP_REGION) --project $(GCP_PROJECT) >/dev/null 2>&1 || \
 	  gcloud artifacts repositories create project3 --repository-format docker --location $(GCP_REGION) \
 	    --project $(GCP_PROJECT) --description "Docker images for the prediction API"
