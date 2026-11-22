@@ -144,7 +144,7 @@ The table also keeps `date`, `station_id`, `latitude`, `longitude`, and `elevati
 
 ## Problem Definition & Evaluation
 
-| | |
+| ||
 |---|---|
 | **Task** | Classification, three classes |
 | **Target** | `tomorrow_category`: `expected`, `extreme high`, or `extreme low` |
@@ -234,7 +234,7 @@ Most ML computation doesn't run in Python at all. NumPy, pandas, scikit-learn, P
 | Container size and cold start | Go | A plain Go service compiles to one binary, so images can be tens of MB (ONNX Runtime adds its library). Python plus ML libraries runs from hundreds of MB to several GB. This matters most on serverless platforms that start containers on demand |
 | Speed of experimenting | Python | Notebooks, libraries, examples |
 
-### Recommendation
+### Decision
 
 Keep Python as the project language. For hands-on Go experience without risking the deadline, the best fit is an **optional stretch goal**, once everything required is done:
 
