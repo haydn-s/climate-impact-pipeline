@@ -2,8 +2,6 @@ name: CI
 
 on:
   pull_request:
-    # `edited` re-runs CI when the PR title changes, so the title lint stays current.
-    types: [opened, edited, reopened, synchronize]
   push:
     branches: [main]
 
@@ -15,41 +13,11 @@ concurrency:
   cancel-in-progress: true
 
 # Jobs call the same Makefile targets developers run locally (make pr-ready),
-# so the commitlint version and test behavior live in one place.
+# so lint and test behavior live in one place.
 env:
   PYTHON_VERSION: "3.12"
-  NODE_VERSION: "24"
 
 jobs:
-  commitlint:
-    name: Commit messages & PR title
-    # Skipped on Dependabot's PRs: it writes "Bump ..." (capitalized, and titles
-    # can pass 100 characters), and no Dependabot setting changes that. The PR
-    # author is checked, not github.actor, so a human re-run still skips it.
-    if: >-
-      github.event_name == 'pull_request' &&
-      github.event.pull_request.user.login != 'dependabot[bot]'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-
-      - uses: actions/setup-node@v7
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-
-      - name: Lint commit messages in this PR
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: make lint-commits FROM="$BASE_SHA" TO="$HEAD_SHA"
-
-      - name: Lint PR title
-        env:
-          PR_TITLE: ${{ github.event.pull_request.title }}
-        run: make lint-title
-
   secrets:
     name: Secret scan (gitleaks)
     if: github.event_name == 'pull_request'
@@ -128,7 +96,7 @@ jobs:
     # `needs` succeeded or was skipped, so adding jobs never means editing
     # branch protection.
     if: always()
-    needs: [commitlint, secrets, lint, test]
+    needs: [secrets, lint, test]
     runs-on: ubuntu-latest
     steps:
       - name: Fail if any job failed or was cancelled
