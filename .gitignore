@@ -29,8 +29,5 @@ models/
 mlruns/
 wandb/
 
-# Node (commitlint tooling in CI)
-node_modules/
-
 # OS
 .DS_Store
