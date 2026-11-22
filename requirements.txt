@@ -15,7 +15,7 @@ joblib==1.6.0               # model files
 
 # Config, storage, and tracking
 pyyaml==6.0.3               # config.yaml
-pydantic==2.14.3            # config validation and API schemas
+pydantic==2.14.4            # config validation and API schemas
 python-dotenv==1.2.4        # load .env for local runs
 google-cloud-storage==3.17.1  # Cloud Storage (gs://): data and models
 requests==2.34.2            # data pipeline: fetching from web APIs
@@ -23,5 +23,5 @@ wandb==0.31.0
 matplotlib==3.11.2          # evaluation plots
 
 # Serving
-fastapi==0.163.1
+fastapi==0.165.0
 uvicorn==0.54.0
