@@ -1,7 +1,7 @@
 # One image for the whole project:
 #   docker run -p 8080:8080 project3                  serve the API (the default; needs a model)
+#   docker run project3 train                         train, evaluate, and save the model
 #   docker run project3 python -m data_pipeline.push  run any other command
-# A `train` command comes with the ML pipeline (ml_pipeline/README.md).
 #
 # The same image runs on Google Cloud Run (make deploy). Cloud Run sets $PORT,
 # which the API listens on, and runs only linux/amd64 images, so build for that
