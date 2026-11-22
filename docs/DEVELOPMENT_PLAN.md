@@ -30,7 +30,7 @@ Goal: leave the meeting with every decision below made, owners assigned, and dat
 | 5 | Experiment tracker | ✅ **Weights & Biases** | Hosted dashboard that both of us (and graders, if the project is public) can see without running a server. Free academic plan (Pro features, 200 GB) with a duke.edu email. W&B is now part of CoreWeave Forge, but the `wandb` SDK is unchanged. Alternative considered: MLflow, which works offline but needs a hosted tracking server (or DagsHub) to share runs |
 | 6 | Model | ✅ **Logistic regression** (`model.type: linear`) | Compare with a random forest in the experiments, plus the dummy and persistence baselines. The merged `config.yaml` trains a random forest, and that's the deployed model (Nov 22). TODO (Jothi): keep it or switch to `linear` |
 | 7 | API framework | **FastAPI** | Pydantic validation and Swagger docs at `/docs` for free |
-| 8 | Front-end | **Jothi designs it** (revised Nov 22). TODO: framework and host | The assignment names Streamlit, Gradio, and NextJS. A front-end that calls the API from the browser needs CORS on the API (see [§9](#9-risks--mitigations)); one that calls it from a server doesn't |
+| 8 | Front-end | ✅ **Streamlit, on Streamlit Community Cloud** (Jothi built it in #22; live Nov 22 at [sourcing-data-project-3.streamlit.app](https://sourcing-data-project-3.streamlit.app/)) | The assignment names Streamlit, Gradio, and NextJS. A front-end that calls the API from the browser needs CORS on the API (see [§9](#9-risks--mitigations)); one that calls it from a server doesn't |
 | 9 | Model delivery to API | **Load from Cloud Storage at startup** (`MODEL_URI=gs://climate-impact-pipeline-data/models/latest/model.joblib`) | Keeps the image independent of the model. The API downloads it to a temp folder at startup. Fallback: copy `model.joblib` into the image at build time |
 | 10 | Cloud account & billing owner | ✅ Haydn's Google Cloud project `climate-impact-pipeline` (billing on) | Set a budget alert on its billing account. If Jothi deploys too, grant Cloud Run Developer, Artifact Registry Writer, and Service Account User in the project |
 | 11 | Work split & owners | See [§7](#7-work-split) | |
@@ -81,7 +81,7 @@ flowchart LR
 | Serving | FastAPI + Uvicorn, in a container on Google Cloud Run |
 | Container | Docker (one image, `train` / `serve` entry points) |
 | Cloud | Google Cloud: Cloud Storage (data and models), Artifact Registry (container images), and Cloud Run (API) |
-| Front-end | TODO (Jothi): framework and host |
+| Front-end | Streamlit, on Streamlit Community Cloud |
 | Tests | pytest, FastAPI `TestClient` |
 | Local environment | PyDev: a Python 3.12 venv built from `requirements-pydev.txt` with `make venv` |
 | Code style | ruff, configured in `pyproject.toml`. `make pr-ready` before every PR |

@@ -4,18 +4,17 @@
 
 ## Try It
 
-<!-- LIVE APP: replace this block with the front-end's link (and a screenshot) once it's deployed. -->
-> **Live app: coming soon.** Until then, try the API from its [Swagger UI](https://project3-api-vuyxgk2a6q-ue.a.run.app/docs): open `POST /predict`, choose **Try it out**, and send the example request.
+> **[Open the live app](https://sourcing-data-project-3.streamlit.app/)**: pick a station and month, enter today's high and low and yesterday's high, and choose **Get prediction**. The app shows tomorrow's predicted category and the model's confidence. If no one has used it for a while, Streamlit may show a button to wake it up, and the first prediction can take about 20 seconds while the API starts.
 
 | | |
 |---|---|
-| 🖥️ **Live app** | TODO: the front-end's link, once it's deployed |
+| 🖥️ **Live app** | [sourcing-data-project-3.streamlit.app](https://sourcing-data-project-3.streamlit.app/) (Streamlit, on Streamlit Community Cloud) |
 | 🔌 **Prediction API** | [`https://project3-api-vuyxgk2a6q-ue.a.run.app/predict`](https://project3-api-vuyxgk2a6q-ue.a.run.app/docs#/default/predict_predict_post) (`POST` JSON; see [API Reference](#api-reference)) |
 | 📖 **API docs (Swagger UI)** | [`https://project3-api-vuyxgk2a6q-ue.a.run.app/docs`](https://project3-api-vuyxgk2a6q-ue.a.run.app/docs) |
 | 📈 **Experiment tracking** | [wandb.ai/dhs27-duke-university/sourcing-data-project-3](https://wandb.ai/dhs27-duke-university/sourcing-data-project-3) (TODO: make the project public) |
 | 🗂️ **Processed dataset** | [`processed/nc_weather_daily.parquet`](https://storage.googleapis.com/climate-impact-pipeline-data/processed/nc_weather_daily.parquet) (public, no login) |
 
-> 🚧 **Status (November 22, 2026).** The data and ML pipelines run end to end. The data pipeline fetches six public sources and publishes the cleaned, featured dataset to Cloud Storage. Training pulls that table, logs each run to W&B, and publishes the model to the bucket. The API serves that model on Google Cloud Run at the link above. The front-end is next. Sections marked **TODO** get filled in as each piece lands.
+> 🚧 **Status (November 22, 2026).** The data and ML pipelines run end to end. The data pipeline fetches six public sources and publishes the cleaned, featured dataset to Cloud Storage. Training pulls that table, logs each run to W&B, and publishes the model to the bucket. The API serves that model on Google Cloud Run, and the Streamlit app on Streamlit Community Cloud calls it. Both are linked above. Sections marked **TODO** get filled in as each piece lands.
 
 *AIPI 510, Module Project 3 (Data/ML Engineering), Duke University*
 **Due:** Tuesday, November 24, 2026, 11:30 AM EST
@@ -89,7 +88,7 @@ flowchart LR
     TRAIN -->|params · metrics · plots| WB[Weights & Biases]
     TRAIN -->|model.joblib| STOREM[(Google Cloud Storage<br/>models/ · public read)]
     STOREM -->|loaded at startup<br/>anonymous read| API[FastAPI /predict<br/>Docker image on Google Cloud Run]
-    UI[Front-end<br/>TODO: framework and host] -->|HTTPS POST JSON| API
+    UI[Streamlit app<br/>Streamlit Community Cloud] -->|HTTPS POST JSON| API
     USER((User)) --> UI
 ```
 
@@ -175,7 +174,7 @@ TODO: one paragraph on what worked, what didn't, and where the model fails (see 
 | **Artifact Registry** | Repository `project3` (`us-east1`) stores the API's Docker image |
 | **Google Cloud Run** | Runs the containerized FastAPI service (`project3-api`) at a public HTTPS URL. Scales to zero when idle, up to two instances. Reads the model from Cloud Storage at startup. The bucket is public, so the service runs as a service account with no roles and holds no keys |
 | **Weights & Biases** | Experiment tracking: parameters, metrics, plots, versioned model artifacts |
-| **TODO: front-end host** | Hosts the public front-end, which calls the Cloud Run API |
+| **Streamlit Community Cloud** | Hosts the Streamlit app (`frontend/app.py`) for free at [sourcing-data-project-3.streamlit.app](https://sourcing-data-project-3.streamlit.app/). The app calls the Cloud Run API from Streamlit's servers, so the API needs no CORS headers. The API's URL is set in the app's `API_URL` secret |
 | **GitHub Actions** | CI checks on every pull request (see [CI checks](#ci-checks)) |
 
 **What the public bucket exposes.** Public read applies to this one bucket: anyone can list and download its files. It gives no access to the Google Cloud project, its settings, or the billing account, so no one can see payment details. Three things follow:
