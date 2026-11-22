@@ -1,6 +1,6 @@
 # &lt;Project Name&gt;
 
-> 🚧 **Status: framework in place, dataset not chosen.** The data pipeline, a config-driven ML training pipeline, the API, and the Docker image are built. The real dataset, target, and features are still to be selected and configured. Sections marked **TODO** get filled in once we pick them at kickoff. The stack is chosen: Google Cloud Storage for the data and models, AWS Lambda for the API, Weights & Biases, FastAPI, and Streamlit. See the [Development Plan](docs/DEVELOPMENT_PLAN.md) for the reasoning and the open decisions.
+> 🚧 **Status: end-to-end framework in place.** The data pipeline, config-driven ML training pipeline, prediction API, and Streamlit front end are implemented. The checked-in configuration uses a weather example; confirm the final dataset, target, features, and deployment URLs before release. Sections marked **TODO** still need project-specific details. See the [Development Plan](docs/DEVELOPMENT_PLAN.md) for the reasoning and open decisions.
 
 **TODO:** One-sentence pitch: what we predict, for whom, and why it's useful.
 
@@ -78,7 +78,7 @@
 ```mermaid
 flowchart LR
     SRC[Public data sources<br/>web APIs · files] -->|data_pipeline/<br/>ingest → prepare → push| STORED[(Google Cloud Storage<br/>raw/ · processed/ · public read)]
-    STORED -->|download| TRAIN[ML pipeline<br/>ml_pipeline/ · to be built]
+    STORED -->|download| TRAIN[ML pipeline<br/>ml_pipeline/ · train → evaluate]
     TRAIN -->|params · metrics · plots| WB[Weights & Biases]
     TRAIN -->|model.joblib| STOREM[(Google Cloud Storage<br/>models/ · public read)]
     STOREM -->|loaded at startup<br/>anonymous read| API[FastAPI /predict<br/>Docker image on AWS Lambda]
@@ -248,18 +248,23 @@ That turns the table above into measured numbers. It's listed as a stretch task 
 │   ├── ingest.py            # 1/3: fetch each source (file, http, custom types) → raw snapshots
 │   ├── prepare.py           # 2/3: cleaners, joins, and feature steps → processed table
 │   └── push.py              # 3/3: upload the processed table (the hand-off to the ML pipeline)
-├── ml_pipeline/             # ML pipeline: processed table → trained model (to be built)
-│   └── README.md            # What it reads, and the model files the API needs from it
+├── ml_pipeline/             # ML pipeline: processed table → evaluated model bundle
+│   ├── pull.py              # Download and select configured training columns
+│   ├── models.py            # Build the configured estimator and preprocessing
+│   ├── evaluate.py          # Calculate configured validation/test metrics
+│   ├── train.py             # Split, fit, evaluate, save, and optionally publish
+│   └── README.md            # Training configuration and API artifact contract
 ├── api/
 │   ├── main.py              # FastAPI app: /health, /metadata, /predict
 │   └── schemas.py           # Response models. The request model is built from the model's metadata
-├── frontend/                # Planned (task B5)
-│   ├── app.py               # Streamlit UI that calls the deployed API
+├── frontend/
+│   ├── app.py               # Metadata-driven Streamlit prediction form
 │   └── requirements.txt     # Front-end-only dependencies (used by Streamlit Cloud)
 ├── scripts/
 │   └── docker_smoke_test.sh # Checks the image's packages and commands load (make docker-smoke)
-├── tests/                   # Mirrors the packages: shared/, data_pipeline/, api/
+├── tests/                   # Mirrors the packages: shared/, data_pipeline/, ml_pipeline/, api/
 │   ├── test_layout.py       # Each package imports only what it may (the pipelines never import each other)
+│   ├── ml_pipeline/         # Training data, metrics, and model artifact tests
 │   └── sample_request.json  # Example payload for curl / Postman
 ├── notebooks/               # Planned (task A1)
 │   └── eda.ipynb            # Exploration only; the pipeline never depends on notebooks
@@ -332,7 +337,7 @@ python -m ipykernel install --user --name PyDev
 | `requirements.txt` | Docker image, CI, PyDev | Runtime dependencies for the pipeline and API |
 | `requirements-dev.txt` | CI, PyDev | pre-commit, pytest, httpx2 |
 | `requirements-pydev.txt` | PyDev (local only) | Both files above, plus notebooks, extra plotting, and deep learning |
-| `frontend/requirements.txt` | Streamlit Community Cloud | Front-end only (added with the front-end) |
+| `frontend/requirements.txt` | Streamlit Community Cloud | Streamlit and requests for the prediction UI |
 
 Keeping torch and TensorFlow out of `requirements.txt` keeps the API's Docker image and CI runs small. Shared packages are pinned only in `requirements.txt`, so PyDev and the image always match. That matters most for scikit-learn: a model saved with one version may not load in another, and the API logs a warning when they differ.
 
@@ -532,7 +537,7 @@ The ML pipeline then downloads `data.remote_uri`. Because the bucket is publicly
 
 ### 2. Train the model
 
-Run `make train` after setting `data.remote_uri`, the target, and features in `config.yaml`. It downloads the processed table, splits it, trains the configured model, evaluates the primary metric, and writes `model.joblib` plus `metadata.json` under `output.local_dir/<run-id>/` and `output.local_dir/latest/`. Set `output.remote_prefix` to publish both bundles to Cloud Storage; that requires Google write credentials. W&B authentication is also needed unless you set `WANDB_MODE=disabled`. See [`ml_pipeline/README.md`](ml_pipeline/README.md) for the config and artifact details. The current dataset and feature values are placeholders.
+Run `make train` after configuring the target and features to match `data.remote_uri`. It downloads the processed table, splits it, trains the configured model, evaluates the primary metric on validation and test splits, and writes `model.joblib` plus `metadata.json` under `output.local_dir/<run-id>/` and `output.local_dir/latest/`. Set `output.remote_prefix` to publish both bundles to Cloud Storage; that requires Google write credentials. W&B authentication is also needed unless you set `WANDB_MODE=disabled`. The checked-in configuration is a weather example; change it to use a different dataset. See [`ml_pipeline/README.md`](ml_pipeline/README.md) for configuration and artifact details.
 
 ### 3. Run the API locally
 
@@ -568,7 +573,7 @@ Serve the API (the default command) on port 8080, with a trained model in `model
 docker run --rm -p 8080:8080 --env-file .env -v "$PWD/models:/app/models" project3
 ```
 
-**Smoke test.** This builds the image and checks, as the non-root user Lambda uses, that its packages import and the data pipeline commands start. Run it locally before changing the Dockerfile. It's out of CI until the ML pipeline produces a model: then the train-and-serve check (train inside the container, serve with a read-only filesystem, and call `/health` and `/predict`) and the CI job come back together:
+**Smoke test.** This local check builds the image and verifies, as the non-root user Lambda uses, that its packages import and the data pipeline commands start. It does not train a model or test predictions, and it is not currently part of CI:
 
 ```bash
 make docker-smoke
@@ -627,14 +632,28 @@ curl -X POST https://<url-id>.lambda-url.<region>.on.aws/predict \
 
 ### 6. Run and deploy the front-end
 
-Locally:
+The app reads the served model's `/metadata` endpoint to build its feature form, then sends submissions to `/predict`. It displays the prediction, confidence when available, and model metrics.
+
+For a local end-to-end run, first train a model (or use an existing `models/latest/` bundle):
+
+```bash
+make train
+```
+
+In one terminal, start the API:
+
+```bash
+make serve
+```
+
+In another terminal, install the front-end dependencies and start Streamlit:
 
 ```bash
 pip install -r frontend/requirements.txt
 API_URL=http://localhost:8080 streamlit run frontend/app.py
 ```
 
-Deploy on [Streamlit Community Cloud](https://share.streamlit.io/): **New app** → this repo → branch `main` → main file `frontend/app.py`. Then under **Advanced settings → Secrets**, add:
+If you want Streamlit to call an already deployed API, set `API_URL` to that API's base URL instead. For Streamlit Community Cloud, create an app from this repo with `frontend/app.py` as the main file, then under **Advanced settings → Secrets**, add:
 
 ```toml
 API_URL = "https://<url-id>.lambda-url.<region>.on.aws"
@@ -642,7 +661,7 @@ API_URL = "https://<url-id>.lambda-url.<region>.on.aws"
 
 ## Configuration
 
-Every pipeline parameter lives in [`config.yaml`](config.yaml), which documents each setting inline. The code holds nothing dataset-specific. Configs are validated when they load, so a typo or an impossible setting (a metric that doesn't fit the task, split sizes that leave no training rows) fails with a clear message before anything runs. The ML sections (`seed`, `task`, `split`, `model`, `evaluation`, `tracking`, `output`) are a template the ML pipeline keeps, changes, or replaces.
+Every pipeline parameter lives in [`config.yaml`](config.yaml), which documents each setting inline. The code holds nothing dataset-specific. Configs are validated when they load, so a typo or an impossible setting (a metric that doesn't fit the task, split sizes that leave no training rows) fails with a clear message before anything runs. The ML sections (`seed`, `task`, `split`, `model`, `evaluation`, `tracking`, `output`) configure the implemented training and artifact-publishing workflow.
 
 | Section | What it controls |
 |---|---|
