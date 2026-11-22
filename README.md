@@ -4,18 +4,18 @@
 
 ## Try It
 
-<!-- LIVE APP: replace this block with the Streamlit link (and a screenshot) once the app is deployed. -->
-> **Live app: coming soon.** The link to the Streamlit app goes here once it's deployed.
+<!-- LIVE APP: replace this block with the front-end's link (and a screenshot) once it's deployed. -->
+> **Live app: coming soon.** Until then, try the API from its [Swagger UI](https://project3-api-vuyxgk2a6q-ue.a.run.app/docs): open `POST /predict`, choose **Try it out**, and send the example request.
 
 | | |
 |---|---|
-| 🖥️ **Live app** | TODO: `https://<app-name>.streamlit.app` |
-| 🔌 **Prediction API** | TODO: `https://project3-api-<id>.us-east1.run.app/predict` (`make deploy-url` prints it) |
-| 📖 **API docs (Swagger UI)** | TODO: `https://project3-api-<id>.us-east1.run.app/docs` |
-| 📈 **Experiment tracking** | [wandb.ai/dhs27-duke-university/sourcing-data-project-3](https://wandb.ai/dhs27-duke-university/sourcing-data-project-3) (TODO: the first logged run creates it; then make it public) |
+| 🖥️ **Live app** | TODO: the front-end's link, once it's deployed |
+| 🔌 **Prediction API** | [`https://project3-api-vuyxgk2a6q-ue.a.run.app/predict`](https://project3-api-vuyxgk2a6q-ue.a.run.app/docs#/default/predict_predict_post) (`POST` JSON; see [API Reference](#api-reference)) |
+| 📖 **API docs (Swagger UI)** | [`https://project3-api-vuyxgk2a6q-ue.a.run.app/docs`](https://project3-api-vuyxgk2a6q-ue.a.run.app/docs) |
+| 📈 **Experiment tracking** | [wandb.ai/dhs27-duke-university/sourcing-data-project-3](https://wandb.ai/dhs27-duke-university/sourcing-data-project-3) (TODO: make the project public) |
 | 🗂️ **Processed dataset** | [`processed/nc_weather_daily.parquet`](https://storage.googleapis.com/climate-impact-pipeline-data/processed/nc_weather_daily.parquet) (public, no login) |
 
-> 🚧 **Status (November 20, 2026).** The data pipeline is done: it fetches six public sources and publishes the cleaned, featured dataset to Cloud Storage. The ML pipeline (training, evaluation, W&B logging) is in progress. The API's Docker image is built and deploys to Google Cloud Run with `make deploy`. The Streamlit front-end is built. A full end-to-end run is planned for Sunday, November 22. Sections marked **TODO** get filled in as each piece lands.
+> 🚧 **Status (November 22, 2026).** The data and ML pipelines run end to end. The data pipeline fetches six public sources and publishes the cleaned, featured dataset to Cloud Storage. Training pulls that table, logs each run to W&B, and publishes the model to the bucket. The API serves that model on Google Cloud Run at the link above. The front-end is next. Sections marked **TODO** get filled in as each piece lands.
 
 *AIPI 510, Module Project 3 (Data/ML Engineering), Duke University*
 **Due:** Tuesday, November 24, 2026, 11:30 AM EST
@@ -49,7 +49,7 @@
     - [3. Run the API locally](#3-run-the-api-locally)
     - [4. Run everything with Docker](#4-run-everything-with-docker)
     - [5. Deploy the API to Google Cloud Run](#5-deploy-the-api-to-google-cloud-run)
-    - [6. Run and deploy the front-end](#6-run-and-deploy-the-front-end)
+    - [6. The front-end](#6-the-front-end)
   - [Configuration](#configuration)
   - [API Reference](#api-reference)
   - [Ethics, Limitations \& Responsible Use](#ethics-limitations--responsible-use)
@@ -89,7 +89,7 @@ flowchart LR
     TRAIN -->|params · metrics · plots| WB[Weights & Biases]
     TRAIN -->|model.joblib| STOREM[(Google Cloud Storage<br/>models/ · public read)]
     STOREM -->|loaded at startup<br/>anonymous read| API[FastAPI /predict<br/>Docker image on Google Cloud Run]
-    UI[Streamlit front-end<br/>Streamlit Community Cloud] -->|HTTPS POST JSON| API
+    UI[Front-end<br/>TODO: framework and host] -->|HTTPS POST JSON| API
     USER((User)) --> UI
 ```
 
@@ -154,7 +154,7 @@ The table also keeps `date`, `station_id`, `latitude`, `longitude`, and `elevati
 
 ## Model
 
-**Model.** Logistic regression (`model.type: linear`): a scikit-learn `Pipeline` whose `ColumnTransformer` imputes, scales, and one-hot encodes the features before the classifier. The whole pipeline is saved as one artifact, so the API applies exactly the same transforms as training. TODO: confirm once the ML pipeline merges, and compare it with a tree model in the experiments.
+**Model.** A random forest (`model.type: random_forest`, 200 trees, depth 10): a scikit-learn `Pipeline` whose `ColumnTransformer` imputes, scales, and one-hot encodes the features before the classifier. The whole pipeline is saved as one artifact, so the API applies exactly the same transforms as training. `config.yaml` can also select `dummy`, `linear`, `hist_gradient_boosting`, or `xgboost`.
 
 **Hyperparameters.** All hyperparameters are set in [`config.yaml`](config.yaml) and logged to W&B on every run. See [Configuration](#configuration).
 
@@ -163,7 +163,7 @@ The table also keeps `date`, `station_id`, `latitude`, `longitude`, and `elevati
 | Model | Val metric | Test metric | W&B run |
 |---|---|---|---|
 | Baseline | TODO | TODO | TODO |
-| TODO | TODO | TODO | TODO |
+| Random forest (deployed) | Macro F1 0.336 | Macro F1 0.338 | [`8wftoqf4`](https://wandb.ai/dhs27-duke-university/sourcing-data-project-3/runs/8wftoqf4) |
 
 TODO: one paragraph on what worked, what didn't, and where the model fails (see [Ethics & Limitations](#ethics-limitations--responsible-use)).
 
@@ -175,7 +175,7 @@ TODO: one paragraph on what worked, what didn't, and where the model fails (see 
 | **Artifact Registry** | Repository `project3` (`us-east1`) stores the API's Docker image |
 | **Google Cloud Run** | Runs the containerized FastAPI service (`project3-api`) at a public HTTPS URL. Scales to zero when idle, up to two instances. Reads the model from Cloud Storage at startup. The bucket is public, so the service runs as a service account with no roles and holds no keys |
 | **Weights & Biases** | Experiment tracking: parameters, metrics, plots, versioned model artifacts |
-| **Streamlit Community Cloud** | Hosts the public front-end, deployed straight from this repo |
+| **TODO: front-end host** | Hosts the public front-end, which calls the Cloud Run API |
 | **GitHub Actions** | CI checks on every pull request (see [CI checks](#ci-checks)) |
 
 **What the public bucket exposes.** Public read applies to this one bucket: anyone can list and download its files. It gives no access to the Google Cloud project, its settings, or the billing account, so no one can see payment details. Three things follow:
@@ -276,18 +276,18 @@ That turns the table above into measured numbers. It's listed as a stretch task 
 │   ├── ingest.py            # 1/3: fetch each source (file, http, custom types) → raw snapshots
 │   ├── prepare.py           # 2/3: cleaners, joins, and feature steps → processed table
 │   └── push.py              # 3/3: upload the processed table (the hand-off to the ML pipeline)
-├── ml_pipeline/             # ML pipeline: processed table → trained model (in progress)
-│   └── README.md            # What it reads, and the model files the API needs from it
+├── ml_pipeline/             # ML pipeline: processed table → trained model in Cloud Storage
+│   ├── pull.py              # 1/4: download the processed table, keep the features and target
+│   ├── models.py            # 2/4: build the preprocessing + estimator pipeline from the config
+│   ├── evaluate.py          # 3/4: score a split with the primary metric
+│   ├── train.py             # 4/4: split, fit, evaluate, save, publish, and log to W&B (make train)
+│   └── README.md            # How to configure training, and the model files the API needs from it
 ├── api/
 │   ├── main.py              # FastAPI app: /health, /metadata, /predict
 │   └── schemas.py           # Response models. The request model is built from the model's metadata
-├── frontend/
-│   ├── app.py               # Streamlit UI. Builds its form from the API's /metadata
-│   ├── api_client.py        # Calls the API and turns errors into plain messages (requests only)
-│   └── requirements.txt     # Front-end-only dependencies (used by Streamlit Cloud)
 ├── scripts/
 │   └── docker_smoke_test.sh # Checks the image's packages and commands load (make docker-smoke)
-├── tests/                   # Mirrors the packages: shared/, data_pipeline/, api/, frontend/
+├── tests/                   # Mirrors the packages: shared/, data_pipeline/, ml_pipeline/, api/
 │   ├── test_layout.py       # Each package imports only what it may (the pipelines never import each other)
 │   └── sample_request.json  # Example payload for curl / Postman
 ├── notebooks/               # Planned (task A1)
@@ -360,7 +360,6 @@ python -m ipykernel install --user --name PyDev
 | `requirements.txt` | Docker image, CI, PyDev | Runtime dependencies for the pipeline and API |
 | `requirements-dev.txt` | CI, PyDev | pre-commit, pytest, httpx2 |
 | `requirements-pydev.txt` | PyDev (local only) | Both files above, plus notebooks, extra plotting, and deep learning |
-| `frontend/requirements.txt` | Streamlit Community Cloud, PyDev | Streamlit and requests, for the front-end |
 
 Keeping torch and TensorFlow out of `requirements.txt` keeps the API's Docker image and CI runs small. Shared packages are pinned only in `requirements.txt`, so PyDev and the image always match. That matters most for scikit-learn: a model saved with one version may not load in another, and the API logs a warning when they differ.
 
@@ -508,7 +507,7 @@ If a key ever lands in a response, ingest replaces it with `***` before saving t
 | `WANDB_MODE` | ML pipeline | Optional. `offline` or `disabled` lets you train without a W&B account |
 | `MODEL_URI` | API | Model location: `gs://climate-impact-pipeline-data/models/latest/model.joblib` or a local path (default: `models/latest/model.joblib`) |
 | `MODEL_CACHE_DIR` | API | Optional. Where a Cloud Storage model is downloaded (default: a folder in the system temp directory) |
-| `API_URL` | front-end | Base URL of the API: `http://localhost:8080` locally, or the Cloud Run URL (`make deploy-url`) |
+| `API_URL` | front-end | Base URL of the API: `http://localhost:8080` locally, or the live `https://project3-api-vuyxgk2a6q-ue.a.run.app` (`make deploy-url` prints it) |
 
 ## Usage
 
@@ -554,7 +553,15 @@ The ML pipeline then downloads `data.remote_uri`. Because the bucket is publicly
 
 ### 2. Train the model
 
-Run `make train` after setting `data.remote_uri`, the target, and features in `config.yaml`. It downloads the processed table, splits it, trains the configured model, evaluates the primary metric, and writes `model.joblib` plus `metadata.json` under `output.local_dir/<run-id>/` and `output.local_dir/latest/`. Set `output.remote_prefix` to publish both bundles to Cloud Storage; that requires Google write credentials. W&B authentication is also needed unless you set `WANDB_MODE=disabled`. See [`ml_pipeline/README.md`](ml_pipeline/README.md) for the config and artifact details. The current dataset and feature values are placeholders.
+Run `make train` after setting `data.remote_uri`, the target, and features in `config.yaml`. It downloads the processed table, splits it, trains the configured model, evaluates the primary metric, and writes `model.joblib` plus `metadata.json` under `output.local_dir/<run-id>/` and `output.local_dir/latest/`. Set `output.remote_prefix` to publish both bundles to Cloud Storage; that requires Google write credentials. W&B authentication is also needed unless you set `WANDB_MODE=disabled`. See [`ml_pipeline/README.md`](ml_pipeline/README.md) for the config and artifact details.
+
+`config.yaml` leaves `output.remote_prefix` as `null`, so a plain `make train` doesn't replace the model the live API serves. To publish a new model to `gs://climate-impact-pipeline-data/models/latest/` (what [Usage 5](#5-deploy-the-api-to-google-cloud-run) deploys), set it for one run:
+
+```bash
+python -m ml_pipeline.train --config config.yaml --set output.remote_prefix=gs://climate-impact-pipeline-data/models
+```
+
+Each Cloud Run instance loads the model when it starts and keeps it, so run `make deploy` afterward to move every instance to the new one.
 
 ### 3. Run the API locally
 
@@ -614,7 +621,7 @@ make deploy
 
 Settings are Makefile variables, for example `make deploy SERVICE=project3-api-test DEPLOY_MODEL_URI=gs://...`. The service uses 1 CPU and 1 GiB, scales to zero when idle (the first request after that takes several seconds), and caps at two instances to keep costs down.
 
-**3. Check it.** Print the URL, then call the API with a test record:
+**3. Check it.** The live service is at `https://project3-api-vuyxgk2a6q-ue.a.run.app` (first deployed on November 22, 2026). Print the URL, then call the API with a test record:
 
 ```bash
 make deploy-url
@@ -628,23 +635,16 @@ curl -X POST "$(make -s deploy-url)/predict" \
 
 **Cost.** Cloud Run's free tier covers 2 million requests a month. The image is about 1.2 GB, so Artifact Registry storage past its free 0.5 GB costs a few cents a month. Delete old images, or the service (`gcloud run services delete project3-api --region us-east1`), after grading.
 
-### 6. Run and deploy the front-end
+### 6. The front-end
 
-The app ([`frontend/app.py`](frontend/app.py)) builds its form from the API's `GET /metadata`, so it always matches the model being served: a dropdown for each categorical feature and a number box for each numeric one. **Predict tomorrow** posts the inputs to `/predict` and shows the predicted class with the model's confidence. If the API is down, slow to wake, or rejects the inputs, the app says so in plain words.
+TODO (Jothi): the framework, how to run it locally, and how it's deployed. Then put its link in [Try It](#try-it).
 
-Locally, with the API running (`make serve`). PyDev already includes Streamlit:
+What it calls, at `https://project3-api-vuyxgk2a6q-ue.a.run.app` (or `http://localhost:8080` with `make serve`):
 
-```bash
-API_URL=http://localhost:8080 streamlit run frontend/app.py
-```
-
-Deploy on [Streamlit Community Cloud](https://share.streamlit.io/): **Create app** → repository `haydn-s/sourcing-data-project-3` → branch `main` (or `frontend` until it merges) → main file `frontend/app.py`. Under **Advanced settings**, choose Python 3.12 and add the secret:
-
-```toml
-API_URL = "https://project3-api-<id>.us-east1.run.app"
-```
-
-Streamlit Cloud installs `frontend/requirements.txt`, the file beside the app, so the app deploys without the pipeline's packages. Then put the app's link in [Try it](#try-it).
+- **`GET /metadata`** lists each feature with its allowed categories (stations and months) or the numeric range seen in training, plus the class labels. A form built from it always matches the model being served. The categories aren't sorted, so sort them for display.
+- **`POST /predict`** takes one JSON record with every feature and returns the predicted class and its probability ([API Reference](#api-reference)). A missing field, an extra field, or an unknown station or month gets a `422` that names the field.
+- **Cold starts.** The service scales to zero, so the first request after it's been idle can take several seconds. Give requests a generous timeout and show that the app is waiting.
+- **CORS.** The API doesn't send CORS headers yet. A front-end that calls it from a server (Streamlit, Gradio, a NextJS server route) doesn't need them. One that calls it from the browser does: add FastAPI's `CORSMiddleware` for the front-end's origin first.
 
 ## Configuration
 
@@ -695,14 +695,22 @@ The `/predict` request schema is generated from the served model's `metadata.jso
 }
 ```
 
-**Example response.** `probability` is the predicted class's probability (`null` for regression), and `model_version` is the W&B run ID. The values below show the shape, not a real result:
+**Example response**, from the live API for the request above. `probability` is the predicted class's probability (`null` for regression), and `model_version` names the training run's folder under `models/` in the bucket:
 
 ```json
 {
-  "prediction": "extreme high",
-  "probability": 0.58,
-  "model_version": "<run-id>"
+  "prediction": "expected",
+  "probability": 0.703,
+  "model_version": "20261122T175956988446Z-3fecd48c"
 }
+```
+
+To call the live API:
+
+```bash
+curl -X POST https://project3-api-vuyxgk2a6q-ue.a.run.app/predict \
+  -H "Content-Type: application/json" \
+  -d @tests/sample_request.json
 ```
 
 ## Ethics, Limitations & Responsible Use
@@ -712,7 +720,7 @@ The `/predict` request schema is generated from the served model's `metadata.jso
 - **Provenance.** NOAA collects these readings at airport weather stations to support aviation and to keep the climate record. Using them to describe how unusual a day is fits that purpose. The data is in the public domain.
 - **Representativeness.** Five airports can't stand for all of North Carolina. Airports sit in open, often paved areas that can run warmer than the countryside around them, and the model knows nothing about other places or about the hours between the daily high and low.
 - **A moving baseline.** "Normal" here means 1991–2020. As the climate warms, more recent days land in `extreme high` (12.2% of days in 2021–2026, against 8.4% in 1991–2020), and the classes shift in the test years, so recent performance can differ from historical performance. That's a real limitation, and it's also the climate signal the index is meant to show.
-- **Intended use.** A rough, curiosity-level gauge. It isn't a forecast, and no one should base safety decisions on it. Heat and cold warnings come from the [National Weather Service](https://www.weather.gov), and the app says so.
+- **Intended use.** A rough, curiosity-level gauge. It isn't a forecast, and no one should base safety decisions on it. Heat and cold warnings come from the [National Weather Service](https://www.weather.gov), and the front-end should say so.
 - **Privacy.** The inputs are weather readings, not personal data, and the API doesn't store them.
 
 Questions to answer:
@@ -723,7 +731,7 @@ Questions to answer:
 - **Limitations:** Dataset age, distribution shift, small sample sizes, metric trade-offs, features we couldn't capture.
 - **Privacy:** Does the dataset contain personal information? Does the API log user inputs?
 - **Redistribution:** Our public bucket republishes each source's raw rows. Confirm each license allows that, and credit every source (see [License & Acknowledgments](#license--acknowledgments)).
-- **Transparency in the UI:** The front-end shows a confidence score and a short disclaimer, so users don't over-trust the output.
+- **Transparency in the UI:** The front-end should show the confidence score (the API returns it) and a short disclaimer, so users don't over-trust the output.
 
 ## Contributing
 
@@ -790,7 +798,7 @@ Passing locally means CI should pass too. The one check CI adds is a gitleaks sc
 |---|---|
 | **Secret scan (gitleaks)** | Scans every commit in the PR for API keys, tokens, and private keys |
 | **Lint (pre-commit hooks)** | `make lint`: file checks (large files, whitespace, YAML/JSON/TOML syntax) plus ruff lint and format |
-| **Tests (pytest)** | `make test`: config validation, storage, the data pipeline (ingest, the source types, prepare, push), package boundaries, the API's model loading, and the front-end's API client. The Streamlit app tests run only where Streamlit is installed (PyDev) |
+| **Tests (pytest)** | `make test`: config validation, storage, the data pipeline (ingest, the source types, prepare, push), package boundaries, the ML pipeline (data loading, metrics, the saved model files), and the API's model loading |
 | **CI passed** | Gate job that succeeds only if every job above passed or was skipped. Branch protection requires this one check |
 
 To add a check, add a job to `ci.yml` and list it under `ci-passed.needs`. Branch protection doesn't need to change. Planned addition: a deploy job on merge that runs `make deploy`, signing in to Google Cloud with Workload Identity Federation instead of stored keys.
@@ -826,7 +834,7 @@ We check for leaked credentials (cloud keys, W&B API keys, tokens) at several po
 
 ### Dependency updates
 
-[Dependabot](.github/dependabot.yml) opens weekly PRs that update pip packages (the root and `frontend/`), the Docker base image (patch versions only, so it stays on PyDev's Python), GitHub Actions, and pre-commit hooks, plus PRs for security fixes. They go through the same CI and review as any other PR.
+[Dependabot](.github/dependabot.yml) opens weekly PRs that update pip packages, the Docker base image (patch versions only, so it stays on PyDev's Python), GitHub Actions, and pre-commit hooks, plus PRs for security fixes. They go through the same CI and review as any other PR.
 
 ### Planned tooling
 
