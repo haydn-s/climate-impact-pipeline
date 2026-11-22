@@ -73,11 +73,52 @@ train: ## Download processed data, train/evaluate the configured model, and save
 serve: ## Run the API locally with auto-reload (serves models/latest unless MODEL_URI is set)
 	uvicorn api.main:create_app --factory --reload --port 8080
 
-docker-build: ## Build the image for Lambda (linux/amd64, no attestations)
+docker-build: ## Build the image for Cloud Run (linux/amd64, no attestations)
 	docker buildx build --platform $(PLATFORM) --provenance=false --sbom=false -t $(IMAGE) --load .
 
 docker-smoke: docker-build ## Build the image and check its packages and commands load
 	IMAGE=$(IMAGE) sh scripts/docker_smoke_test.sh
+
+##@ Deploy the API to Google Cloud Run
+
+# Override any of these, e.g. make deploy SERVICE=project3-api-test
+GCP_PROJECT ?= climate-impact-pipeline
+GCP_REGION ?= us-east1
+SERVICE ?= project3-api
+REGISTRY ?= $(GCP_REGION)-docker.pkg.dev/$(GCP_PROJECT)/project3
+TAG ?= $(shell git rev-parse --short HEAD)
+DEPLOY_MODEL_URI ?= gs://climate-impact-pipeline-data/models/latest/model.joblib
+# The API runs as its own service account with no roles: it reads the model
+# from the public bucket, so it needs no Google permissions.
+RUNTIME_SA := $(SERVICE)@$(GCP_PROJECT).iam.gserviceaccount.com
+
+.PHONY: deploy-setup deploy deploy-url
+
+deploy-setup: ## Once per project: enable Cloud Run and Artifact Registry, create the image repository and service account
+	gcloud services enable run.googleapis.com artifactregistry.googleapis.com iam.googleapis.com --project $(GCP_PROJECT)
+	@# A newly enabled API can take a minute to answer, so wait for Artifact Registry.
+	@for i in $$(seq 1 24); do \
+	  gcloud artifacts repositories list --location $(GCP_REGION) --project $(GCP_PROJECT) >/dev/null 2>&1 && break; \
+	  if [ $$i -eq 1 ]; then echo "Waiting for Artifact Registry to activate..."; fi; sleep 5; \
+	done
+	@gcloud artifacts repositories describe project3 --location $(GCP_REGION) --project $(GCP_PROJECT) >/dev/null 2>&1 || \
+	  gcloud artifacts repositories create project3 --repository-format docker --location $(GCP_REGION) \
+	    --project $(GCP_PROJECT) --description "Docker images for the prediction API"
+	@gcloud iam service-accounts describe $(RUNTIME_SA) --project $(GCP_PROJECT) >/dev/null 2>&1 || \
+	  gcloud iam service-accounts create $(SERVICE) --project $(GCP_PROJECT) --display-name "Prediction API (Cloud Run)"
+	gcloud auth configure-docker $(GCP_REGION)-docker.pkg.dev --quiet
+
+deploy: ## Build and push the image, then deploy it to Cloud Run at a public URL (serves DEPLOY_MODEL_URI)
+	docker buildx build --platform $(PLATFORM) --provenance=false --sbom=false \
+	  -t $(REGISTRY)/$(IMAGE):$(TAG) --push .
+	gcloud run deploy $(SERVICE) --project $(GCP_PROJECT) --region $(GCP_REGION) \
+	  --image $(REGISTRY)/$(IMAGE):$(TAG) --service-account $(RUNTIME_SA) --allow-unauthenticated \
+	  --port 8080 --cpu 1 --memory 1Gi --cpu-boost --min-instances 0 --max-instances 2 \
+	  --set-env-vars MODEL_URI=$(DEPLOY_MODEL_URI)
+	@echo "API: $$($(MAKE) --no-print-directory deploy-url)/docs"
+
+deploy-url: ## Print the deployed API's public URL
+	@gcloud run services describe $(SERVICE) --project $(GCP_PROJECT) --region $(GCP_REGION) --format 'value(status.url)'
 
 ##@ Pull requests
 

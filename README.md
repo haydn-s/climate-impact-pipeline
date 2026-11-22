@@ -48,7 +48,7 @@
     - [3. Run the API locally](#3-run-the-api-locally)
     - [4. Run everything with Docker](#4-run-everything-with-docker)
     - [5. Deploy the API to Google Cloud Run](#5-deploy-the-api-to-google-cloud-run)
-    - [6. The front-end](#6-the-front-end)
+    - [6. Run and deploy the front-end](#6-run-and-deploy-the-front-end)
   - [Configuration](#configuration)
   - [API Reference](#api-reference)
   - [Ethics, Limitations \& Responsible Use](#ethics-limitations--responsible-use)
@@ -84,7 +84,7 @@
 ```mermaid
 flowchart LR
     SRC[Public data sources<br/>web APIs · files] -->|data_pipeline/<br/>ingest → prepare → push| STORED[(Google Cloud Storage<br/>raw/ · processed/ · public read)]
-    STORED -->|download| TRAIN[ML pipeline<br/>ml_pipeline/]
+    STORED -->|download| TRAIN[ML pipeline<br/>ml_pipeline/ · train → evaluate]
     TRAIN -->|params · metrics · plots| WB[Weights & Biases]
     TRAIN -->|model.joblib| STOREM[(Google Cloud Storage<br/>models/ · public read)]
     STOREM -->|loaded at startup<br/>anonymous read| API[FastAPI /predict<br/>Docker image on Google Cloud Run]
@@ -284,10 +284,14 @@ That turns the table above into measured numbers. It's listed as a stretch task 
 ├── api/
 │   ├── main.py              # FastAPI app: /health, /metadata, /predict
 │   └── schemas.py           # Response models. The request model is built from the model's metadata
+├── frontend/                # Streamlit app, hosted on Streamlit Community Cloud
+│   ├── app.py               # Builds its form from the API's /metadata, then calls /predict
+│   └── requirements.txt     # Front-end-only dependencies (Streamlit Community Cloud installs these)
 ├── scripts/
 │   └── docker_smoke_test.sh # Checks the image's packages and commands load (make docker-smoke)
 ├── tests/                   # Mirrors the packages: shared/, data_pipeline/, ml_pipeline/, api/
 │   ├── test_layout.py       # Each package imports only what it may (the pipelines never import each other)
+│   ├── ml_pipeline/         # Training data, metrics, and model artifact tests
 │   └── sample_request.json  # Example payload for curl / Postman
 ├── notebooks/               # Planned (task A1)
 │   └── eda.ipynb            # Exploration only; the pipeline never depends on notebooks
@@ -359,6 +363,7 @@ python -m ipykernel install --user --name PyDev
 | `requirements.txt` | Docker image, CI, PyDev | Runtime dependencies for the pipeline and API |
 | `requirements-dev.txt` | CI, PyDev | pre-commit, pytest, httpx2 |
 | `requirements-pydev.txt` | PyDev (local only) | Both files above, plus notebooks, extra plotting, and deep learning |
+| `frontend/requirements.txt` | Streamlit Community Cloud | Streamlit and requests for the prediction UI |
 
 Keeping torch and TensorFlow out of `requirements.txt` keeps the API's Docker image and CI runs small. Shared packages are pinned only in `requirements.txt`, so PyDev and the image always match. That matters most for scikit-learn: a model saved with one version may not load in another, and the API logs a warning when they differ.
 
@@ -552,7 +557,7 @@ The ML pipeline then downloads `data.remote_uri`. Because the bucket is publicly
 
 ### 2. Train the model
 
-Run `make train` after setting `data.remote_uri`, the target, and features in `config.yaml`. It downloads the processed table, splits it, trains the configured model, evaluates the primary metric, and writes `model.joblib` plus `metadata.json` under `output.local_dir/<run-id>/` and `output.local_dir/latest/`. Set `output.remote_prefix` to publish both bundles to Cloud Storage; that requires Google write credentials. W&B authentication is also needed unless you set `WANDB_MODE=disabled`. See [`ml_pipeline/README.md`](ml_pipeline/README.md) for the config and artifact details.
+Run `make train` after setting `data.remote_uri`, the target, and features in `config.yaml`. It downloads the processed table, splits it, trains the configured model, evaluates the primary metric on the validation and test splits, and writes `model.joblib` plus `metadata.json` under `output.local_dir/<run-id>/` and `output.local_dir/latest/`. Set `output.remote_prefix` to publish both bundles to Cloud Storage; that requires Google write credentials. W&B authentication is also needed unless you set `WANDB_MODE=disabled`. See [`ml_pipeline/README.md`](ml_pipeline/README.md) for the config and artifact details.
 
 `config.yaml` leaves `output.remote_prefix` as `null`, so a plain `make train` doesn't replace the model the live API serves. To publish a new model to `gs://climate-impact-pipeline-data/models/latest/` (what [Usage 5](#5-deploy-the-api-to-google-cloud-run) deploys), set it for one run:
 
@@ -596,7 +601,7 @@ Serve the API (the default command) on port 8080, with a trained model in `model
 docker run --rm -p 8080:8080 --env-file .env -v "$PWD/models:/app/models" project3
 ```
 
-**Smoke test.** This builds the image and checks, as a non-root user, that its packages import and the data pipeline commands start. Run it locally before changing the Dockerfile. It's out of CI until the ML pipeline produces a model: then the train-and-serve check (train inside the container, serve with a read-only filesystem, and call `/health` and `/predict`) and the CI job come back together:
+**Smoke test.** This builds the image and checks, as a non-root user, that its packages import and the data pipeline commands start. It doesn't train a model or call the API, and it isn't part of CI. Run it locally before changing the Dockerfile:
 
 ```bash
 make docker-smoke
@@ -634,20 +639,37 @@ curl -X POST "$(make -s deploy-url)/predict" \
 
 **Cost.** Cloud Run's free tier covers 2 million requests a month. The image is about 1.2 GB, so Artifact Registry storage past its free 0.5 GB costs a few cents a month. Delete old images, or the service (`gcloud run services delete project3-api --region us-east1`), after grading.
 
-### 6. The front-end
+### 6. Run and deploy the front-end
 
-TODO (Jothi): the framework, how to run it locally, and how it's deployed. Then put its link in [Try It](#try-it).
+The front-end is a Streamlit app, [`frontend/app.py`](frontend/app.py), live at [sourcing-data-project-3.streamlit.app](https://sourcing-data-project-3.streamlit.app/). It reads the served model's `/metadata` to build its form, so the form always matches the model, then sends each submission to `/predict`. It shows the predicted category, the model's confidence, and the model's test metrics.
+
+**Run it locally** against the live API:
+
+```bash
+pip install -r frontend/requirements.txt
+API_URL=https://project3-api-vuyxgk2a6q-ue.a.run.app streamlit run frontend/app.py
+```
+
+To use a local API instead, train a model with `make train` (or use an existing `models/latest/` bundle), start the API with `make serve` in another terminal, and set `API_URL=http://localhost:8080`.
+
+**Deploy it** on [Streamlit Community Cloud](https://share.streamlit.io/): create an app from this repo with branch `main` and main file `frontend/app.py`. Streamlit uses the `frontend/requirements.txt` next to the app, not the API's `requirements.txt`. Under **Advanced settings → Secrets** (or **⋮ → Settings → Secrets** once the app exists), add:
+
+```toml
+API_URL = "https://project3-api-vuyxgk2a6q-ue.a.run.app"
+```
+
+Streamlit redeploys the app when `main` changes.
 
 What it calls, at `https://project3-api-vuyxgk2a6q-ue.a.run.app` (or `http://localhost:8080` with `make serve`):
 
 - **`GET /metadata`** lists each feature with its allowed categories (stations and months) or the numeric range seen in training, plus the class labels. A form built from it always matches the model being served. The categories aren't sorted, so sort them for display.
 - **`POST /predict`** takes one JSON record with every feature and returns the predicted class and its probability ([API Reference](#api-reference)). A missing field, an extra field, or an unknown station or month gets a `422` that names the field.
-- **Cold starts.** The service scales to zero, so the first request after it's been idle can take several seconds. Give requests a generous timeout and show that the app is waiting.
-- **CORS.** The API doesn't send CORS headers yet. A front-end that calls it from a server (Streamlit, Gradio, a NextJS server route) doesn't need them. One that calls it from the browser does: add FastAPI's `CORSMiddleware` for the front-end's origin first.
+- **Cold starts.** The service scales to zero, so the first request after it's been idle takes about 20 seconds. The app waits up to 60 seconds for a response.
+- **CORS.** The API doesn't send CORS headers. Streamlit calls it from its server, so it doesn't need them. A front-end that called it from the browser would need FastAPI's `CORSMiddleware` for its origin first.
 
 ## Configuration
 
-Every pipeline parameter lives in [`config.yaml`](config.yaml), which documents each setting inline. The code holds nothing dataset-specific. Configs are validated when they load, so a typo or an impossible setting (a metric that doesn't fit the task, split sizes that leave no training rows) fails with a clear message before anything runs. The ML sections (`seed`, `task`, `split`, `model`, `evaluation`, `tracking`, `output`) are a template the ML pipeline keeps, changes, or replaces.
+Every pipeline parameter lives in [`config.yaml`](config.yaml), which documents each setting inline. The code holds nothing dataset-specific. Configs are validated when they load, so a typo or an impossible setting (a metric that doesn't fit the task, split sizes that leave no training rows) fails with a clear message before anything runs. The ML sections (`seed`, `task`, `split`, `model`, `evaluation`, `tracking`, `output`) configure the implemented training and artifact-publishing workflow.
 
 | Section | What it controls |
 |---|---|
