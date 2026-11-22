@@ -144,7 +144,7 @@ The `/predict` request schema is generated from the model's `metadata.json`, so 
 - [x] Google Cloud project with billing (`climate-impact-pipeline`). Still to do: a budget alert (see decision 10)
 - [x] Create the Cloud Storage bucket `climate-impact-pipeline-data` (`us-east1`, versioning on, public read)
 - [x] Run `make deploy-setup` once: Cloud Run, Artifact Registry, and the API's service account
-- [ ] Apply for the W&B academic plan with a duke.edu email, create a team, invite Jothi, and create a **public** project
+- [x] Apply for the W&B academic plan with a duke.edu email, create a team, invite Jothi, and create a **public** project (public since Nov 22)
 - [x] Scaffold the code layout: folders, `.env.example`, `config.yaml`, `requirements.txt` (plus the dataset-agnostic framework; see Phase 1)
 
 ### Phase 1: Parallel build · Target: Sun, Nov 15 (walking skeleton by Thu, Nov 12)

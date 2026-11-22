@@ -11,10 +11,10 @@
 | 🖥️ **Live app** | [sourcing-data-project-3.streamlit.app](https://sourcing-data-project-3.streamlit.app/) (Streamlit, on Streamlit Community Cloud) |
 | 🔌 **Prediction API** | [`https://project3-api-vuyxgk2a6q-ue.a.run.app/predict`](https://project3-api-vuyxgk2a6q-ue.a.run.app/docs#/default/predict_predict_post) (`POST` JSON; see [API Reference](#api-reference)) |
 | 📖 **API docs (Swagger UI)** | [`https://project3-api-vuyxgk2a6q-ue.a.run.app/docs`](https://project3-api-vuyxgk2a6q-ue.a.run.app/docs) |
-| 📈 **Experiment tracking** | [wandb.ai/dhs27-duke-university/sourcing-data-project-3](https://wandb.ai/dhs27-duke-university/sourcing-data-project-3) (TODO: make the project public) |
+| 📈 **Experiment tracking** | [wandb.ai/dhs27-duke-university/sourcing-data-project-3](https://wandb.ai/dhs27-duke-university/sourcing-data-project-3) (public, no login) |
 | 🗂️ **Processed dataset** | [`processed/nc_weather_daily.parquet`](https://storage.googleapis.com/climate-impact-pipeline-data/processed/nc_weather_daily.parquet) (public, no login) |
 
-> 🚧 **Status (November 22, 2026).** Every piece runs end to end. The data pipeline fetches six public sources and publishes the cleaned, featured dataset to Cloud Storage. Training pulls that table, logs each run to W&B, and publishes the model to the bucket. The API serves that model on Google Cloud Run, and the Streamlit app on Streamlit Community Cloud calls it. Both are linked above. Still to do before submission, each marked **TODO**: the model results, the ethics review, and making the W&B project public.
+> 🚧 **Status (November 22, 2026).** Every piece runs end to end. The data pipeline fetches six public sources and publishes the cleaned, featured dataset to Cloud Storage. Training pulls that table, logs each run to W&B, and publishes the model to the bucket. The API serves that model on Google Cloud Run, and the Streamlit app on Streamlit Community Cloud calls it. Both are linked above. Still to do before submission, each marked **TODO**: the model results and the ethics review.
 
 *AIPI 510, Module Project 3 (Data/ML Engineering), Duke University*
 **Due:** Tuesday, November 24, 2026, 11:30 AM EST
