@@ -12,7 +12,7 @@
 
 ## Checklist
 
-- [ ] PR title follows Conventional Commits (e.g., `feat(api): add /predict endpoint`)
+- [ ] PR title is clear, since it becomes the commit on `main` (Conventional Commits suggested, e.g., `feat(api): add /predict endpoint`)
 - [ ] No secrets, credentials, or large data/model files committed
 - [ ] New parameters go in `config.yaml`, not hard-coded
 - [ ] `requirements*.txt` updated if dependencies changed
