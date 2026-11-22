@@ -869,7 +869,7 @@ We check for leaked credentials (cloud keys, W&B API keys, tokens) at several po
 
 ### Planned tooling
 
-These are deferred until the code exists:
+Two ideas we left out to keep the tooling light:
 
 - **Editor format-on-save.** Shared `.vscode/settings.json` and `extensions.json` that install the Ruff extension and format on save, once we confirm we both use VS Code or Cursor. Until then, `make format` does the same job.
 - **Project-specific checks as pre-commit hooks.** Small scripts in `scripts/hooks/` that pre-commit runs on every commit. For example:

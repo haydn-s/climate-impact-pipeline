@@ -181,8 +181,8 @@ The `/predict` request schema is generated from the model's `metadata.json`, so 
 
 | ID | Task | Done when | Owner | PR |
 |---|---|---|---|---|
-| B1 | `api/schemas.py` + `api/main.py`: FastAPI with `/health` and `/predict`, loading a model from `MODEL_URI` (a local path, or a `gs://` URI downloaded to a temp folder). Start with a **stub model** trained quickly on the raw data | `curl` against localhost returns a prediction | | |
-| B2 | `tests/test_api.py` + `tests/sample_request.json` | `pytest` passes | | |
+| B1 | `api/schemas.py` + `api/main.py`: FastAPI with `/health` and `/predict`, loading a model from `MODEL_URI` (a local path, or a `gs://` URI downloaded to a temp folder). Start with a **stub model** trained quickly on the raw data | `curl` against localhost returns a prediction | Haydn | #2, #12 |
+| B2 | `tests/test_api.py` + `tests/sample_request.json` | `pytest` passes | Haydn | #2 |
 | B3 | `Dockerfile` + `scripts/entrypoint.sh`: one image, `train` and `serve` commands, `serve` is the default and listens on `$PORT` (8080), which Cloud Run sets. Build for `linux/amd64`, the platform Cloud Run runs | `docker run ... train` and `docker run -p 8080:8080 ... serve` both work locally | Haydn | #2, #14 |
 | B4 | Deploy the API to Google Cloud Run: `make deploy-setup` once, then `make deploy`, which pushes the image to Artifact Registry and deploys a public service that serves `models/latest/`. Steps are in README §Usage 5 | The Cloud Run URL answers `/predict` via `curl` | Haydn | #12 (live Nov 22) |
 | B5 | Front-end: a form for the frozen feature list (it can be built from `/metadata`) → `POST /predict` → show the prediction, confidence, and a short explanation and disclaimer. Handle API errors and timeouts | Works locally against both the local API and the deployed API | Jothi | #22 |
@@ -204,7 +204,7 @@ On Nov 22 the front-end moved to Jothi, who's designing it, and Haydn's Streamli
 - [ ] Fill in every **TODO** in the README: dataset, metric, results, links to the live app, API, and W&B
 - [ ] Write the ethics & limitations section (questions are in the README)
 - [ ] Check the requirements list ([§10](#10-requirements-checklist)). Every box ticked
-- [ ] Clean up commit history and branches. Confirm both of us have merged PRs
+- [x] Clean up commit history and branches. Confirm both of us have merged PRs (Jothi: #17, #22)
 - [ ] Confirm the deployed app and API are still live on submission day
 - [ ] Submit by **Tue, Nov 24, 11:30 AM EST**
 
@@ -224,8 +224,8 @@ Proposal: each of us **owns** one track and **reviews** the other's PRs. To make
 
 | Area | Primary owner | Reviewer |
 |---|---|---|
-| Track A: data & pipeline | TODO | TODO |
-| Track B: serving, deploy, front-end | TODO | TODO |
+| Track A: data & pipeline | Haydn (A2, the data pipeline) and Jothi (A3–A6, the ML pipeline) | Each other's PRs |
+| Track B: serving, deploy, front-end | Haydn (B1–B4 and B6: the API, Docker, Cloud Run, hosting the app) and Jothi (B5, the Streamlit app) | Each other's PRs |
 | README & ethics | Shared | Shared |
 
 **PR requirement:** each member must submit at least one PR. With this split we'll each have many more, which is good. It also gives us a clear commit history.
@@ -259,9 +259,9 @@ docs/readme-results
 
 | Phase | Add to CI |
 |---|---|
-| Now | gitleaks secret scan, pre-commit hooks (file checks, ruff), pytest (config, storage, data pipeline, package boundaries, API model loading), and no Docker job until the ML pipeline produces a model (`make docker-smoke` runs locally) |
+| Now | gitleaks secret scan, pre-commit hooks (file checks, ruff), pytest (config, storage, data pipeline, package boundaries, API model loading), and no Docker job: it builds a 1.2 GB image, so `make docker-smoke` runs locally |
 | Track A | Tests for dataset-specific cleaning and preprocessing (picked up by the existing pytest job) |
-| Track B | Front-end tests, if any. The API tests and Docker check already run |
+| Track B | Front-end tests, if any. The API tests already run in the pytest job |
 | Deploy | CD job: on push to `main`, run `make deploy`. Sign in to Google Cloud with Workload Identity Federation instead of a stored key |
 
 **Changing branch protection.** Edit [`.github/rulesets/protect-main.json`](../.github/rulesets/protect-main.json) in a PR. Once it merges, a repo admin applies it:
@@ -303,7 +303,7 @@ Maps each assignment requirement to where we satisfy it. Tick these off before s
 - [x] Docs: how to deploy to the cloud → README §Usage 5–6
 - [ ] Experiment tracking logs parameters, metrics, and artifacts (model, plots). TODO (Jothi): parameters and metrics are logged, but the model and plots aren't yet
 - [x] Branches and PRs, with ≥1 PR from each member
-- [ ] Clear project structure and commit history. TODO: delete the branches of merged and closed PRs
+- [x] Clear project structure and commit history (leftover branches deleted and the repo reorganized, Nov 22)
 
 **Pipeline**
 
