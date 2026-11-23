@@ -15,7 +15,7 @@
 | 🗂️ **Processed dataset** | [`processed/nc_weather_daily.parquet`](https://storage.googleapis.com/climate-impact-pipeline-data/processed/nc_weather_daily.parquet) (public, no login) |
 | 🧾 **Raw data** | [`raw/manifest.json`](https://storage.googleapis.com/climate-impact-pipeline-data/raw/manifest.json) lists each source's unchanged snapshot (`raw/<name>.csv`, e.g. [`raw/weather.csv`](https://storage.googleapis.com/climate-impact-pipeline-data/raw/weather.csv)), with where and when it was fetched (public, no login) |
 
-> 🚧 **Status (November 22, 2026).** Every piece runs end to end. The data pipeline fetches six public sources and publishes the cleaned, featured dataset to Cloud Storage. Training pulls that table, logs each run to W&B, and publishes the model to the bucket. The API serves that model on Google Cloud Run, and the Streamlit app on Streamlit Community Cloud calls it. Both are linked above. 
+> 🚧 **Status (November 22, 2026).** Every piece runs end to end. The data pipeline fetches six public sources and publishes the cleaned, featured dataset to Cloud Storage. Training pulls that table, logs each run to W&B, and publishes the model to the bucket. The API serves that model on Google Cloud Run, and the Streamlit app on Streamlit Community Cloud calls it. Both are linked above.
 
 *AIPI 510, Module Project 3 (Data/ML Engineering), Duke University*
 **Due:** Tuesday, November 24, 2026, 11:30 AM EST
