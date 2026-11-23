@@ -15,7 +15,7 @@
 | 🗂️ **Processed dataset** | [`processed/nc_weather_daily.parquet`](https://storage.googleapis.com/climate-impact-pipeline-data/processed/nc_weather_daily.parquet) (public, no login) |
 | 🧾 **Raw data** | [`raw/manifest.json`](https://storage.googleapis.com/climate-impact-pipeline-data/raw/manifest.json) lists each source's unchanged snapshot (`raw/<name>.csv`, e.g. [`raw/weather.csv`](https://storage.googleapis.com/climate-impact-pipeline-data/raw/weather.csv)), with where and when it was fetched (public, no login) |
 
-> 🚧 **Status (November 22, 2026).** Every piece runs end to end. The data pipeline fetches six public sources and publishes the cleaned, featured dataset to Cloud Storage. Training pulls that table, logs each run to W&B, and publishes the model to the bucket. The API serves that model on Google Cloud Run, and the Streamlit app on Streamlit Community Cloud calls it. Both are linked above. Still to do before submission, each marked **TODO**: the model results and the ethics review.
+> 🚧 **Status (November 22, 2026).** Every piece runs end to end. The data pipeline fetches six public sources and publishes the cleaned, featured dataset to Cloud Storage. Training pulls that table, logs each run to W&B, and publishes the model to the bucket. The API serves that model on Google Cloud Run, and the Streamlit app on Streamlit Community Cloud calls it. Both are linked above. Still to do before submission, each marked 
 
 *AIPI 510, Module Project 3 (Data/ML Engineering), Duke University*
 **Due:** Tuesday, November 24, 2026, 11:30 AM EST
@@ -316,8 +316,8 @@ That turns the table above into measured numbers. It's listed as a stretch task 
 ### Install
 
 ```bash
-git clone git@github.com:haydn-s/sourcing-data-project-3.git
-cd sourcing-data-project-3
+git clone git@github.com:haydn-s/climate-impact-pipeline.git
+cd climate-impact-pipeline
 make venv              # creates PyDev (Python 3.12) and installs requirements/pydev.txt
 source PyDev/bin/activate
 make setup             # installs the git hooks: gitleaks, ruff, file checks
