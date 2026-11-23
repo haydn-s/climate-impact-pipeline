@@ -15,7 +15,7 @@
 | 🗂️ **Processed dataset** | [`processed/nc_weather_daily.parquet`](https://storage.googleapis.com/climate-impact-pipeline-data/processed/nc_weather_daily.parquet) (public, no login) |
 | 🧾 **Raw data** | [`raw/manifest.json`](https://storage.googleapis.com/climate-impact-pipeline-data/raw/manifest.json) lists each source's unchanged snapshot (`raw/<name>.csv`, e.g. [`raw/weather.csv`](https://storage.googleapis.com/climate-impact-pipeline-data/raw/weather.csv)), with where and when it was fetched (public, no login) |
 
-> 🚧 **Status (November 22, 2026).** Every piece runs end to end. The data pipeline fetches six public sources and publishes the cleaned, featured dataset to Cloud Storage. Training pulls that table, logs each run to W&B, and publishes the model to the bucket. The API serves that model on Google Cloud Run, and the Streamlit app on Streamlit Community Cloud calls it. Both are linked above. Still to do before submission, each marked 
+> 🚧 **Status (November 22, 2026).** Every piece runs end to end. The data pipeline fetches six public sources and publishes the cleaned, featured dataset to Cloud Storage. Training pulls that table, logs each run to W&B, and publishes the model to the bucket. The API serves that model on Google Cloud Run, and the Streamlit app on Streamlit Community Cloud calls it. Both are linked above. 
 
 *AIPI 510, Module Project 3 (Data/ML Engineering), Duke University*
 **Due:** Tuesday, November 24, 2026, 11:30 AM EST
@@ -166,7 +166,7 @@ The table also keeps `date`, `station_id`, `latitude`, `longitude`, and `elevati
 | Baseline | TODO | TODO | TODO |
 | Random forest (deployed) | Macro F1 0.336 | Macro F1 0.338 | [`8wftoqf4`](https://wandb.ai/dhs27-duke-university/sourcing-data-project-3/runs/8wftoqf4) |
 
-TODO: one paragraph on what worked, what didn't, and where the model fails (see [Ethics & Limitations](#ethics-limitations--responsible-use)).
+The random forest’s validation and test macro F1 scores are similar (0.336 and 0.338), suggesting similar aggregate performance on these two splits. The scores are modest, so this model should be treated as a demonstration of the pipeline rather than a reliable forecast. We compare it with majority-class and persistence baselines to see whether it improves on simple alternatives. Per-class scores, especially for extreme highs and lows, are important because a single macro F1 score does not show which categories the model handles well. (see [Ethics & Limitations](#ethics-limitations--responsible-use)).
 
 ## Cloud Services
 
@@ -746,23 +746,14 @@ curl -X POST https://project3-api-vuyxgk2a6q-ue.a.run.app/predict \
 
 ## Ethics, Limitations & Responsible Use
 
-*Draft from the data side. TODO: review together, and add what the model results show.*
-
+-  **Overview**. This project uses public NOAA daily observations from five North Carolina airport stations, collected for weather and climate monitoring. The dataset does not include personal or demographic attributes, but its geographic coverage is limited: airport readings do not represent every community or local microclimate in the state. The model describes anomalies relative to the fixed 1991–2020 baseline, so the meaning and frequency of its labels can shift as the climate changes. It is an educational estimate, not an operational forecast; users should rely on the National Weather Service for safety decisions. Before redistributing raw snapshots, we will verify the applicable reuse terms for each source and provide attribution.
 - **Provenance.** NOAA collects these readings at airport weather stations to support aviation and to keep the climate record. Using them to describe how unusual a day is fits that purpose. The data is in the public domain.
 - **Representativeness.** Five airports can't stand for all of North Carolina. Airports sit in open, often paved areas that can run warmer than the countryside around them, and the model knows nothing about other places or about the hours between the daily high and low.
 - **A moving baseline.** "Normal" here means 1991–2020. As the climate warms, more recent days land in `extreme high` (12.2% of days in 2021–2026, against 8.4% in 1991–2020), and the classes shift in the test years, so recent performance can differ from historical performance. That's a real limitation, and it's also the climate signal the index is meant to show.
 - **Intended use.** A rough, curiosity-level gauge. It isn't a forecast, and no one should base safety decisions on it. Heat and cold warnings come from the [National Weather Service](https://www.weather.gov). The app labels each prediction as an estimate, not an official advisory.
+-  **Redistribution:** Our public bucket republishes each source's raw rows. (see [License & Acknowledgments](#license--acknowledgments)).
 - **Privacy.** The inputs are weather readings, not personal data, and the API doesn't store them.
 
-Questions to answer:
-
-- **Data provenance & consent:** Who collected the data, when, and for what purpose? Does using it this way match that purpose?
-- **Representativeness & bias:** Which populations, regions, or time periods are over- or under-represented? Does the data include sensitive attributes (directly or through proxies), and how does performance differ across subgroups?
-- **Intended use & misuse:** What decisions should this model *not* be used for? What happens when a prediction is wrong, and who bears the cost?
-- **Limitations:** Dataset age, distribution shift, small sample sizes, metric trade-offs, features we couldn't capture.
-- **Privacy:** Does the dataset contain personal information? Does the API log user inputs?
-- **Redistribution:** Our public bucket republishes each source's raw rows. Confirm each license allows that, and credit every source (see [License & Acknowledgments](#license--acknowledgments)).
-- **Transparency in the UI:** The front-end should show the confidence score (the API returns it) and a short disclaimer, so users don't over-trust the output.
 
 ## Contributing
 
